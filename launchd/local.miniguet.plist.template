@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>local.miniguet</string>
+<key>ProgramArguments</key><array>
+<string>__PYTHON__</string>
+<string>__REPO__/server.py</string>
+<string>--host</string><string>127.0.0.1</string>
+<string>--host</string><string>tailscale</string>
+</array>
+<key>WorkingDirectory</key><string>__REPO__</string>
+<key>EnvironmentVariables</key><dict>
+<key>PATH</key><string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+</dict>
+<key>RunAtLoad</key><true/>
+<key>KeepAlive</key><true/>
+<key>StandardOutPath</key><string>/tmp/miniguet.log</string>
+<key>StandardErrorPath</key><string>/tmp/miniguet.log</string>
+</dict></plist>

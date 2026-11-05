@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+.DS_Store
+# state is kept outside the repo (~/.local/state/herdr-board), nothing to ignore there

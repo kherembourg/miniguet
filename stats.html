@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Miniguet · Statistiques</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png?v=2">
+<link rel="shortcut icon" href="/favicon.ico?v=2">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+<link rel="manifest" href="/manifest.webmanifest?v=2">
+<meta name="theme-color" content="#0f1115">
+<style>
+:root{--bg:#0f1115;--card:#181b22;--sel:#262b38;--fg:#e8eaf0;--dim:#9aa1b4;--wait:#f5a524;--waitt:#f5a524;--work:#4c8dff;--workt:#7aa7ff;--idle:#4b5163;--new:#ff4d4d;--line:#232834}
+@media (prefers-color-scheme: light){:root{--bg:#f4f5f7;--card:#fff;--sel:#e4e8f1;--fg:#14161b;--dim:#5d6477;--waitt:#a35f00;--workt:#2f63c9;--idle:#b7bccb;--line:#dde1ea}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;gap:16px;align-items:center;padding:16px 28px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;font-weight:600;margin:0;flex:1}
+a.back{color:var(--workt);font-size:15px;text-decoration:none;padding:10px 4px}
+button{font:inherit;color:inherit}
+.seg{display:flex;gap:6px}
+.seg button{padding:10px 16px;border-radius:10px;border:1px solid var(--idle);background:var(--card);cursor:pointer}
+.seg button.on{background:var(--sel);outline:2px solid var(--fg)}
+main{padding:20px 28px 40px;max-width:1280px;margin:0 auto}
+.note{color:var(--dim);font-size:13px;line-height:1.45;margin:0 0 18px}
+#err{color:var(--new);margin:0 0 12px}
+.day{font-size:17px;font-weight:600;margin:6px 0 12px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.card{background:var(--card);border-radius:14px;padding:16px 18px}
+.card .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.card .v{font-size:34px;font-weight:700;line-height:1.1;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+.card .s{font-size:12px;color:var(--dim);line-height:1.35}
+.card.w .v{color:var(--waitt)}
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.chart{background:var(--card);border-radius:14px;padding:16px 18px}
+.chart h3{margin:0;font-size:15px}
+.chart p{margin:4px 0 12px;font-size:12px;color:var(--dim);line-height:1.4}
+.bars{display:flex;gap:4px;align-items:flex-end;height:130px}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;height:100%;background:none;border:0;padding:0;cursor:pointer;border-radius:8px}
+.col .val{font-size:11px;color:var(--dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+.col .bar{width:100%;min-height:2px;background:var(--workt);border-radius:4px 4px 0 0;opacity:.55;position:relative;overflow:hidden}
+.col .bar i{position:absolute;left:0;right:0;bottom:0;background:var(--fg);opacity:.35}
+.chart.w .bar{background:var(--waitt)}
+.col.sel{background:var(--sel)}
+.col.sel .bar{opacity:1}.col.sel .val{color:var(--fg);font-weight:700}
+.labs{display:flex;gap:4px;margin-top:4px}
+.labs span{flex:1;min-width:0;text-align:center;font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden}
+.labs span.sel{color:var(--fg);font-weight:700}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim)}
+td.n,th.n{text-align:right}
+td.w{color:var(--waitt);font-weight:600}
+h2{font-size:17px;margin:28px 0 4px}
+.how{margin-top:28px;background:var(--card);border-radius:14px;padding:6px 18px 14px}
+.how h2{margin-top:12px}.how li{margin:6px 0;line-height:1.45}.how ul{padding-left:20px;margin:8px 0}
+.cards.c5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:820px){.cards,.cards.c5{grid-template-columns:repeat(2,minmax(0,1fr))}.charts{grid-template-columns:1fr}main{padding:16px 16px 40px}header{padding:12px 16px}}
+</style></head><body>
+<header><img src="/assets/logo.png" alt="Miniguet" width="40" height="40" style="margin:-6px 0"><a class="back" href="/">← Retour</a><h1>Statistiques de jonglage</h1>
+<div class="seg"><button id="d7">7 jours</button><button id="d14">14 jours</button></div></header>
+<main>
+<p class="note">Ces chiffres sont des approximations tirées des messages que tu envoies à tes agents Claude Code, pas du temps d'écran réel. Ils ne voient ni les réunions, ni le temps passé hors des conversations, ni les agents Codex.</p>
+<div id="err"></div>
+<div class="day" id="dayh"></div>
+<div class="cards" id="cards"></div>
+<div class="charts" id="charts"></div>
+<h2>Par sujet, ce jour-là</h2>
+<table id="tbl"></table>
+<h2>Jetons et coût équivalent API, sur la période affichée</h2>
+<p class="note" id="costnote"></p>
+<div class="cards c5" id="tokcards"></div>
+<table id="mtbl"></table>
+<div class="how"><h2>Comment lire ces mesures</h2><ul>
+<li><b>Sujet</b> : le nom du space Herdr de la session (ou, à défaut, le titre automatique de la conversation). Plusieurs sessions d'un même space forment un seul sujet.</li>
+<li><b>Message</b> : une intervention de toi auprès d'un agent : un texte tapé, un texte collé (un seul message, même précédé de texte tapé), une commande tapée avec « ! » ou une commande slash qui lance un skill (par exemple /github-review). Ne comptent pas : les retours d'outils, les messages d'autres agents (même collés), les notifications de tâches, les appels automatiques, les retours de hooks, les sorties de commandes et les commandes locales comme /clear, /model ou /mcp, qui ne s'adressent à aucun agent.</li>
+<li><b>Présence</b> : tous tes messages du jour, sessions et sujets confondus. Deux messages espacés de moins de 15 min sont dans le même bloc ; un bloc dure du premier au dernier message, plus 2 min. La présence est la somme des blocs. Elle mesure le temps où tu as été en train d'écrire à tes agents, pas le temps devant l'écran.</li>
+<li><b>Conversation directe</b> : le temps passé à échanger avec un agent sur un même sujet. On additionne les écarts de moins de 10 min entre deux messages du sujet, plus 2 min par série (une série = messages d'un sujet espacés de moins de 10 min). Le total du jour ne compte pas deux fois les moments où deux sujets se chevauchent.</li>
+<li><b>Travail des agents</b> : pour chaque session (sous-agents compris), on additionne les écarts de moins de 15 min entre deux événements du journal (réponses de l'agent, résultats d'outils) à l'intérieur d'un tour, c'est-à-dire entre ton message et le suivant. Le « cumulé » additionne les sessions (des heures d'agents) ; le « réel » compte le temps où au moins un agent travaillait. Les écarts de 15 min à 4 h au milieu d'un tour (validation d'un outil, processus de fond) sont des pauses, comptées à part. Les sessions sans message de toi (agents délégués) comptent ici, sans devenir des sujets.</li>
+<li><b>Changement de contexte</b> : deux messages consécutifs, tous sujets confondus, qui portent sur des sujets différents. « Enchaîné » : le message précédent, sur un autre sujet, date de moins de 5 min (écart entre deux messages, pas une durée totale). « Aller-retour » : retour sur un sujet déjà visité dans l'heure qui précède.</li>
+<li><b>Attente</b> : pour chaque session, du dernier message texte de l'agent à ton message suivant, si l'écart fait moins de 4 h, et seulement entre 08:00 et 20:00. Les sessions s'additionnent : trois agents qui attendent une heure en même temps font 3 h. La barre claire montre le temps où au moins un agent attendait. Ce n'est pas du temps perdu à coup sûr : l'agent attend peut-être juste que tu reviennes de pause. Les périodes où tu as reporté (snooze) la tâche d'une session sont retirées de l'attente, pour cette session seulement (l'attente cumulée comme le temps réel) ; elles ne changent ni la présence ni le travail des agents. Un report dont la session n'est pas connue est ignoré.</li>
+<li><b>Plus longue série</b> : le plus long enchaînement de messages sur un même sujet, sans changement de contexte et sans pause de 10 min.</li>
+<li><b>Jetons et coût</b> : les jetons viennent des journaux des conversations, sous-agents compris, un message n'étant compté qu'une fois même s'il apparaît sur plusieurs lignes. Le coût est un équivalent au tarif public de l'API (voir le tableau des modèles), pas ce que coûte ton abonnement. Un modèle inconnu ou le mode rapide donne des jetons mais pas de coût : ils sont signalés comme « non chiffrés », jamais comptés à 0. Codex n'est pas couvert (tarifs inconnus).</li>
+<li><b>Comparer d'un jour à l'autre</b> : les règles sont les mêmes tous les jours (seuils de 10 min, 15 min et 4 h, heures ouvrées 08:00-20:00), donc l'évolution a plus de sens que la valeur d'un jour pris seul. Les jours vont de 00:00 à 24:00, heure locale de la Mac. Les conversations des 60 derniers jours au plus sont lues.</li>
+</ul></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let D=null,days=7,sel=null;
+function dur(ms){const m=Math.round(ms/60000);if(m<60)return m+' min';return Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')}
+const num=n=>String(n);
+const usd=v=>v.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' $';
+const tok=n=>n>=1e9?(n/1e9).toFixed(2)+' Md':n>=1e6?(n/1e6).toFixed(1)+' M':n>=1e3?Math.round(n/1e3)+' k':String(n);
+const lab=j=>{const d=new Date(j.date+'T12:00:00');return d.toLocaleDateString('fr-FR',{weekday:'short'}).slice(0,3)+' '+d.getDate()};
+const MEAS=[
+ {t:'Présence',get:j=>j.presence_ms,fmt:dur,ex:'Temps où tu as écrit à tes agents : blocs de messages espacés de moins de 15 min, toutes sessions confondues.'},
+ {t:'Conversation directe',get:j=>j.actif_ms,fmt:dur,ex:'Temps passé à échanger sur un même sujet, d\'après l\'espacement de tes messages (voir plus bas).'},
+ {t:'Temps d\'attente',w:1,get:j=>j.attente_ms,fmt:dur,inner:j=>j.attente_reelle_ms,
+  ex:'Temps pendant lequel tes agents ont attendu ta réponse (08:00-20:00, sessions additionnées). Barre claire : au moins un agent attendait.'},
+ {t:'Travail des agents',get:j=>j.travail_ms,fmt:dur,inner:j=>j.travail_reel_ms,ex:'Heures d\'agents : temps de travail additionné sur toutes les sessions. Barre claire : au moins un agent travaillait.'},
+ {t:'Changements de contexte',get:j=>j.changements,fmt:num,ex:'Fois où ton message suit un message sur un autre sujet.'},
+ {t:'Sujets traités',get:j=>j.sujets,fmt:num,ex:'Sujets distincts avec au moins un message de toi.'},
+ {t:'Plus longue série',get:j=>j.serie_max?j.serie_max.ms:0,fmt:dur,ex:'Plus long enchaînement sur un même sujet, sans changement de contexte.'},
+ {t:'Messages envoyés',get:j=>j.messages,fmt:num,ex:'Nombre de messages que tu as tapés.'},
+ {t:'Coût équivalent API',get:j=>j.cout_usd,fmt:usd,ex:'Ce que les jetons du jour auraient coûté au tarif public de l\'API. Ton abonnement réel est différent.'}];
+function bars(m,js){
+ const mx=Math.max(1,...js.map(m.get));
+ return '<div class="bars">'+js.map(j=>{const v=m.get(j),h=Math.round(v/mx*100),i=m.inner?Math.round(m.inner(j)/mx*100):0;
+  return '<button class="col'+(j.date===sel?' sel':'')+'" data-d="'+j.date+'"><span class="val">'+(v?m.fmt(v):'')+'</span><div class="bar" style="height:calc((100% - 18px)*'+(h/100)+')">'+(i?'<i style="height:'+Math.round(i/Math.max(h,1)*100)+'%"></i>':'')+'</div></button>'}).join('')+'</div>'+
+  '<div class="labs">'+js.map(j=>'<span'+(j.date===sel?' class="sel"':'')+'>'+lab(j)+'</span>').join('')+'</div>'}
+function render(){
+ const js=D.jours.slice(-days),j=D.jours.find(x=>x.date===sel)||js[js.length-1];sel=j.date;
+ $('d7').className=days===7?'on':'';$('d14').className=days===14?'on':'';
+ const d=new Date(j.date+'T12:00:00');
+ $('dayh').textContent=d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})+(j===D.jours[D.jours.length-1]?' (en cours)':'');
+ const sm=j.serie_max;
+ $('cards').innerHTML=
+  '<div class="card"><div class="k">Présence</div><div class="v">'+dur(j.presence_ms)+'</div><div class="s">Temps où tu as écrit à tes agents : '+j.nb_blocs+' bloc'+(j.nb_blocs>1?'s':'')+' de messages espacés de moins de 15 min.</div></div>'+
+  '<div class="card"><div class="k">Conversation directe</div><div class="v">'+dur(j.actif_ms)+'</div><div class="s">Temps passé à échanger sur un même sujet, d\'après l\'espacement de tes messages.</div></div>'+
+  '<div class="card w"><div class="k">Attente de toi</div><div class="v">'+dur(j.attente_ms)+'</div><div class="s">Sessions additionnées. Au moins un agent attendait pendant '+dur(j.attente_reelle_ms)+'.</div></div>'+
+  '<div class="card"><div class="k">Travail des agents</div><div class="v">'+dur(j.travail_ms)+'</div><div class="s">Heures d\'agents, sessions et sous-agents additionnés. Au moins un agent travaillait pendant '+dur(j.travail_reel_ms)+'. Pauses (15 min à 4 h) : '+dur(j.pauses_ms)+'.</div></div>'+
+  '<div class="card"><div class="k">Changements de contexte</div><div class="v">'+j.changements+'</div><div class="s">Sur '+j.messages+' messages. '+j.rapides+' de ces changements sont arrivés moins de 5 min après ton message précédent (écart entre deux messages, pas '+j.rapides+' changements en 5 min). '+j.allers_retours+' étaient un retour sur un sujet déjà vu dans l\'heure.</div></div>'+
+  '<div class="card"><div class="k">Sujets</div><div class="v">'+j.sujets+'</div><div class="s">'+j.messages+' messages envoyés ce jour-là.</div></div>'+
+  '<div class="card"><div class="k">Plus longue série</div><div class="v">'+(sm?dur(sm.ms):'—')+'</div><div class="s">'+(sm?esc(sm.sujet)+', depuis '+new Date(sm.debut_ms).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'Aucun message ce jour-là.')+'</div></div>'+
+  '<div class="card"><div class="k">Coût équivalent API</div><div class="v">'+usd(j.cout_usd)+'</div><div class="s">Au tarif public de l\'API, pas ton abonnement.'+(j.non_chiffres.messages?' '+j.non_chiffres.messages+' message(s) non chiffré(s).':'')+'</div></div>';
+ $('charts').innerHTML=MEAS.map(m=>'<div class="chart'+(m.w?' w':'')+'"><h3>'+m.t+'</h3><p>'+m.ex+'</p>'+bars(m,js)+'</div>').join('');
+ document.querySelectorAll('.col').forEach(b=>b.onclick=()=>{sel=b.dataset.d;render()});
+ $('tbl').innerHTML='<tr><th>Sujet</th><th class="n">Messages</th><th class="n">Conversation directe</th><th class="n">Attente</th><th class="n">Travail des agents</th><th class="n">Coût</th></tr>'+
+  (j.par_sujet.map(t=>'<tr><td>'+esc(t.sujet)+'</td><td class="n">'+t.messages+'</td><td class="n">'+(t.actif_ms?dur(t.actif_ms):'—')+'</td><td class="n w">'+(t.attente_ms?dur(t.attente_ms):'—')+'</td><td class="n">'+(t.travail_ms?dur(t.travail_ms):'—')+'</td><td class="n">'+(t.cout_usd?usd(t.cout_usd):'—')+'</td></tr>').join('')||'<tr><td colspan="6">Rien ce jour-là.</td></tr>');
+ renderCost(js);
+}
+function renderCost(js){
+ const t={entree:0,sortie:0,cache_lecture:0,cache_ecriture:0},m={},unk={};let c=0,fast=0;
+ js.forEach(j=>{c+=j.cout_usd;for(const k in t)t[k]+=j.jetons[k];fast+=j.non_chiffres.rapide;
+  for(const k in j.non_chiffres.modeles)unk[k]=(unk[k]||0)+j.non_chiffres.modeles[k];
+  j.par_modele.forEach(x=>{const a=m[x.modele]=m[x.modele]||{modele:x.modele,messages:0,cout_usd:0,non_chiffres:0,jetons:{entree:0,sortie:0,cache_lecture:0,cache_ecriture:0}};
+   a.messages+=x.messages;a.cout_usd+=x.cout_usd;a.non_chiffres+=x.non_chiffres;for(const k in t)a.jetons[k]+=x.jetons[k]})});
+ const P=D.prix,warn=[];
+ if(Object.keys(unk).length)warn.push('Modèle(s) inconnu(s), jetons comptés mais coût non chiffré : '+Object.keys(unk).map(k=>esc(k)+' ('+unk[k]+' messages)').join(', ')+'.');
+ if(fast)warn.push(fast+' message(s) en mode rapide : tarif premium non couvert, coût non chiffré.');
+ $('costnote').innerHTML='Équivalent API : ce qu\'il aurait fallu payer au tarif public de l\'API (sans remise batch ni résidence des données), pas ton abonnement réel, qui est différent. Tarifs relevés le '+esc(P.date)+' sur <a href="'+esc(P.source)+'" style="color:var(--workt)">'+esc(P.source)+'</a>'+(P.fichier?' (modifiés par prices.json)':'')+'. Les agents Codex ne sont pas couverts (tarifs inconnus).'+(warn.length?' <b style="color:var(--waitt)">'+warn.join(' ')+'</b>':'');
+ const card=(k,v,s)=>'<div class="card"><div class="k">'+k+'</div><div class="v">'+v+'</div><div class="s">'+s+'</div></div>';
+ $('tokcards').innerHTML=card('Coût sur '+js.length+' jours',usd(c),'Messages non chiffrés exclus.')+card('Entrée',tok(t.entree),'Jetons d\'entrée hors cache.')+card('Sortie',tok(t.sortie),'Réponses, réflexion comprise.')+card('Cache lu',tok(t.cache_lecture),'Contexte relu à tarif réduit.')+card('Cache écrit',tok(t.cache_ecriture),'Contexte mis en cache (5 min et 1 h).');
+ $('mtbl').innerHTML='<tr><th>Modèle</th><th class="n">Messages</th><th class="n">Entrée</th><th class="n">Sortie</th><th class="n">Cache lu</th><th class="n">Cache écrit</th><th class="n">Coût</th></tr>'+
+  Object.values(m).sort((a,b)=>b.cout_usd-a.cout_usd).map(x=>'<tr><td>'+esc(x.modele)+'</td><td class="n">'+x.messages+'</td><td class="n">'+tok(x.jetons.entree)+'</td><td class="n">'+tok(x.jetons.sortie)+'</td><td class="n">'+tok(x.jetons.cache_lecture)+'</td><td class="n">'+tok(x.jetons.cache_ecriture)+'</td><td class="n">'+(x.non_chiffres>=x.messages?'non chiffré':usd(x.cout_usd)+(x.non_chiffres?' (+'+x.non_chiffres+' non chiffrés)':''))+'</td></tr>').join('');
+}
+async function load(){
+ try{
+  const r=await fetch('/api/stats?days=14',{cache:'no-store'}),d=await r.json();
+  if(d.pending){$('err').textContent='Calcul en cours, ça arrive…';setTimeout(load,2000);return}
+  if(d.error)throw new Error(d.error);
+  $('err').textContent='';D=d;render();
+ }catch(e){$('err').textContent='Erreur : '+e.message;setTimeout(load,5000)}
+}
+$('d7').onclick=()=>{days=7;if(D)render()};$('d14').onclick=()=>{days=14;if(D)render()};
+load();setInterval(load,60000);
+</script><script>/* embedded in Miniguet's shell (iframe): in-app links are handled by the shell, which owns the address bar and the music */
+if(window.parent!==window){document.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(!a)return;const h=a.getAttribute('href');
+ if(h==='/'){e.preventDefault();parent.postMessage({mg:'close'},location.origin)}
+ else if(/^\/(stats|daily|daily\/history)(\?|$)/.test(h)){e.preventDefault();parent.postMessage({mg:'open',href:h},location.origin)}})}
+</script>
+</body></html>

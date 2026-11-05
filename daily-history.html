@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Miniguet · Historique des dailies</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png?v=2">
+<link rel="shortcut icon" href="/favicon.ico?v=2">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+<link rel="manifest" href="/manifest.webmanifest?v=2">
+<meta name="theme-color" content="#0f1115">
+<style>
+:root{--bg:#0f1115;--card:#181b22;--fg:#e8eaf0;--dim:#9aa1b4;--waitt:#f5a524;--workt:#7aa7ff;--idle:#4b5163;--line:#232834}
+@media (prefers-color-scheme: light){:root{--bg:#f4f5f7;--card:#fff;--fg:#14161b;--dim:#5d6477;--waitt:#a35f00;--workt:#2f63c9;--idle:#b7bccb;--line:#dde1ea}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;gap:16px;align-items:center;padding:16px 28px;border-bottom:1px solid var(--line)}
+h1{font-size:20px;font-weight:600;margin:0;flex:1}
+a{color:var(--workt);text-decoration:none}
+main{padding:20px 28px 40px;max-width:920px;margin:0 auto}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+input{flex:1;min-width:220px;font:inherit;padding:10px 14px;border-radius:10px;border:1px solid var(--idle);background:var(--card);color:var(--fg)}
+.count{color:var(--dim);font-size:13px}
+details{background:var(--card);border-radius:14px;margin-bottom:10px;padding:0 18px}
+summary{cursor:pointer;padding:14px 0;list-style:none;display:flex;gap:14px;align-items:baseline}
+summary::-webkit-details-marker{display:none}
+.d{font-weight:700;white-space:nowrap;min-width:150px}
+.first{flex:1;color:var(--fg);line-height:1.4}
+.st{color:var(--dim);font-size:12px;white-space:nowrap}
+.body{padding:0 0 14px;border-top:1px solid var(--line)}
+h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin:14px 0 6px}
+h3.say{color:var(--waitt)}
+.body ul{margin:4px 0;padding-left:20px;line-height:1.45;font-size:15px}
+.body li{margin:3px 0}
+.body b.t{display:block;margin-top:10px;font-size:15px}
+mark{background:#f5a52455;color:inherit;border-radius:3px}
+.empty{color:var(--dim);padding:20px 0}
+@media (max-width:820px){main{padding:16px}header{padding:12px 16px}summary{flex-wrap:wrap}.d{min-width:0}}
+</style></head><body>
+<header><img src="/assets/logo.png" alt="Miniguet" width="40" height="40" style="margin:-6px 0"><a href="/daily">← Daily</a><h1>Historique des dailies</h1><a href="/api/daily/export.md" download="miniguet-dailies.md">Exporter en Markdown</a></header>
+<main>
+<div class="bar"><input id="q" type="search" placeholder="Rechercher dans tous les dailies (sujet, mot, nom de ticket…)" aria-label="Recherche"><span class="count" id="n"></span></div>
+<div id="list"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fm=ms=>Math.floor(ms/36e5)+' h '+String(Math.floor(ms%36e5/6e4)).padStart(2,'0');
+let DAYS=[],LINEAR={};
+function lk(s,q){let e=hl(s,q);if(q)return e;return e.replace(/\b([A-Z]{2,5})-(\d+)\b/g,(m,p)=>LINEAR[p]?'<a href="'+LINEAR[p]+m+'" target="_blank" rel="noopener">'+m+'</a>':m)}
+function text(d){return [d.date,(d.annoncer||[]).join(' '),...(d.sujets||[]).flatMap(s=>[s.sujet,...(s.puces||[])]),...(d.bloque||[]).map(b=>b.sujet+' '+b.texte)].join(' \n').toLowerCase()}
+function hl(s,q){const e=esc(s);if(!q)return e;const i=e.toLowerCase().indexOf(esc(q).toLowerCase());return i<0?e:e.slice(0,i)+'<mark>'+e.slice(i,i+esc(q).length)+'</mark>'+e.slice(i+esc(q).length)}
+function day(d,q,open){
+ const c=d.chiffres||{},dt=new Date(d.date+'T12:00:00');
+ const lab=dt.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+ let b='';
+ if((d.annoncer||[]).length)b+='<h3 class="say">À annoncer</h3><ul>'+d.annoncer.map(x=>'<li>'+hl(x,q)+'</li>').join('')+'</ul>';
+ (d.sujets||[]).forEach(s=>{b+='<b class="t">'+hl(s.sujet,q)+'</b><ul>'+(s.puces||[]).map(p=>'<li>'+lk(p,q)+'</li>').join('')+'</ul>'});
+ if((d.bloque||[]).length)b+='<h3>Bloqué / en attente</h3><ul>'+d.bloque.map(x=>'<li><small>['+esc(x.sujet)+']</small> '+hl(x.texte,q)+'</li>').join('')+'</ul>';
+ if(d.erreur)b+='<p style="color:#ff4d4d">Génération incomplète : '+esc(d.erreur)+'</p>';
+ return '<details'+(open?' open':'')+'><summary><span class="d">'+esc(lab)+'</span><span class="first">'+esc((d.annoncer||[])[0]||'(résumé sans rédaction)')+'</span><span class="st">'+(c.sujets||0)+' sujets · '+(c.messages||0)+' msg'+(c.presence_ms?' · '+fm(c.presence_ms):'')+'</span></summary><div class="body">'+b+'</div></details>'}
+function render(){
+ const q=$('q').value.trim(),ql=q.toLowerCase();
+ const list=DAYS.filter(d=>!ql||text(d).includes(ql));
+ $('n').textContent=list.length+' / '+DAYS.length+' jours';
+ $('list').innerHTML=list.length?list.map(d=>day(d,q,!!ql)).join(''):'<div class="empty">'+(DAYS.length?'Aucun daily ne correspond.':'Aucun daily pour le moment. Le premier est généré à 11 h 50 un jour ouvré, ou depuis la page Daily.')+'</div>'}
+$('q').addEventListener('input',render);
+fetch('/api/daily/all').then(r=>r.json()).then(j=>{DAYS=j.days||[];LINEAR=j.linear||{};render()}).catch(e=>{$('list').innerHTML='<div class="empty">Erreur : '+esc(e.message)+'</div>'});
+</script><script>/* embedded in Miniguet's shell (iframe): in-app links are handled by the shell, which owns the address bar and the music */
+if(window.parent!==window){document.addEventListener('click',e=>{const a=e.target.closest('a[href]');if(!a)return;const h=a.getAttribute('href');
+ if(h==='/'){e.preventDefault();parent.postMessage({mg:'close'},location.origin)}
+ else if(/^\/(stats|daily|daily\/history)(\?|$)/.test(h)){e.preventDefault();parent.postMessage({mg:'open',href:h},location.origin)}})}
+</script>
+</body></html>
