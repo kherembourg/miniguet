@@ -169,7 +169,8 @@ def find_draft(lines):
     for ln in reversed(lines[-6:]):
         m = re.match(r"^\s*❯\s*(.*\S)\s*$", ln)
         if m:
-            return m.group(1)
+            d = m.group(1)
+            return "" if re.fullmatch(r"[<\d;Mm]+", d) else d   # leftover mouse-wheel escape codes are not a draft
     return ""
 
 

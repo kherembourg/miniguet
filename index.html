@@ -331,7 +331,7 @@ function render(d){
  if(!(ae&&ae.closest&&ae.closest('#detail')&&/^(INPUT|TEXTAREA)$/.test(ae.tagName))){const dh=detail(d.agents.find(x=>x.address===SEL));if(dh!==LASTHTML){D.innerHTML=dh;LASTHTML=dh}}
  L.scrollTop=ls;D.scrollTop=ds;
  D.querySelectorAll('[data-since]').forEach(e=>{e.textContent=e.dataset.since?age(+e.dataset.since):''});
- prev=cur;first=false;
+ prev.forEach((v,k)=>{if(!cur.has(k))cur.set(k,v)});prev=cur;first=false;  // a space that blinks out of the list for a moment is not new when it returns
  renderDesk();
  if(fresh&&!down()){if(DESK){const k=$('desk').classList;k.remove('flash');void $('desk').offsetWidth;k.add('flash')}MG.sound.chime(fkind)}
 }

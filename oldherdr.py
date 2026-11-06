@@ -9,6 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 HERDR = "/opt/homebrew/bin/herdr"
 APPS = {"claude": "claude-code", "codex": "codex"}
 EVERY = 2        # seconds between polls of the agent list
+GRACE = 180      # seconds of failed polls tolerated before the old herdr sessions are hidden
+_ok = [time.time()]
 SCREEN_TTL = 15  # a "done" screen is re-read at least this often (always, when its state changed)
 
 _lock = threading.Lock()
@@ -18,12 +20,12 @@ _track = {}      # address -> {"seq", "status", "since", "turn"}
 
 
 def _cli(*args):
-    r = subprocess.run([HERDR, *args], capture_output=True, text=True, timeout=3, check=True)
+    r = subprocess.run([HERDR, *args], capture_output=True, text=True, timeout=10, check=True)
     return json.loads(r.stdout)["result"]
 
 
 def _read(pane):
-    r = subprocess.run([HERDR, "pane", "read", pane, "--lines", "150"], capture_output=True, text=True, timeout=3, check=True)
+    r = subprocess.run([HERDR, "pane", "read", pane, "--lines", "150"], capture_output=True, text=True, timeout=10, check=True)
     return r.stdout.splitlines()
 
 
@@ -97,9 +99,13 @@ def _loop():
                      and ((_screens.get(r["address"]) or (None, 0))[0] != r["seq"]
                           or now - _screens[r["address"]][1] > SCREEN_TTL)]
             list(pool.map(_screen, stale))
+            _ok[0] = time.time()
         except Exception:
-            with _lock:  # CLI or server down: the board shows nothing from the old herdr
-                _snap.clear()
+            # CLI slow (machine under load) or server down: keep the last good list for a while, otherwise every
+            # session would vanish and come back as "new". After GRACE s of failures the board shows nothing.
+            if time.time() - _ok[0] > GRACE:
+                with _lock:
+                    _snap.clear()
         time.sleep(EVERY)
 
 
