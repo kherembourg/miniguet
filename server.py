@@ -7,8 +7,9 @@ serves a single page. Stdlib only.
     python3 server.py                 # http://127.0.0.1:8765
     python3 server.py --host 0.0.0.0  # reachable from a tablet on your LAN
 """
-import argparse, datetime, difflib, glob, importlib, json, os, re, subprocess, sys, threading, time
+import argparse, datetime, difflib, glob, hmac, importlib, json, os, re, secrets, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HC = os.path.expanduser("~/.local/bin/hc")
@@ -25,7 +26,10 @@ def snapshot():
     return json.loads(line)["terminals"]
 
 
-SCRATCH = os.environ.get("HERDR_BOARD_CWD", "/tmp")
+STATE_DIR = os.path.expanduser("~/.local/state/herdr-board")
+# working folder of the `claude -p` calls: private (0700) and user-owned, never a shared /tmp where another user could plant a .claude/settings.json
+SCRATCH = os.environ.get("HERDR_BOARD_CWD") or os.path.join(STATE_DIR, "scratch")
+os.makedirs(SCRATCH, mode=0o700, exist_ok=True)
 POOL = ThreadPoolExecutor(max_workers=4)
 CACHE = {}   # key -> {"open": [...], "answered": [...]} | {"error": str}
 INFLIGHT = set()
@@ -259,7 +263,8 @@ def analyze(key, screen_tail, draft, pid=None):
         p = PROMPT.replace("{draft}", d).replace("{prev}", pv).replace("{screen}", screen_tail)
         r = subprocess.run(
             ["claude", "-p", "--model", "haiku", "--no-session-persistence",
-             "--settings", '{"disableAllHooks":true}', "--disable-slash-commands"],
+             "--settings", '{"disableAllHooks":true}', "--setting-sources", "user",
+             "--disable-slash-commands", "--tools", ""],   # no project settings, no built-in tools: text in, text out
             input=p, capture_output=True, text=True, timeout=90, cwd=SCRATCH)
         txt = re.sub(r"^```(?:json)?|```$", "", r.stdout.strip(), flags=re.M).strip()
         j = json.loads(txt)
@@ -512,7 +517,8 @@ def ask_sonnet(prompt):
     """JSON answer of `claude -p --model sonnet` (the only place conversation content is sent)."""
     r = subprocess.run(
         ["claude", "-p", "--model", "sonnet", "--no-session-persistence",
-         "--settings", '{"disableAllHooks":true}', "--disable-slash-commands"],
+         "--settings", '{"disableAllHooks":true}', "--setting-sources", "user",
+             "--disable-slash-commands", "--tools", ""],   # no project settings, no built-in tools: text in, text out
         input=prompt, capture_output=True, text=True, timeout=150, cwd=SCRATCH)
     return json.loads(re.sub(r"^```(?:json)?|```$", "", r.stdout.strip(), flags=re.M).strip())
 
@@ -580,6 +586,8 @@ def send_check(addr, text, since_ms):
     """(terminal, None) if `text` may be typed into session `addr` now, else (terminal|None, {"error": reason})."""
     if not text.strip():
         return None, {"error": "message vide"}
+    if text.lstrip()[:1] in ("!", "/"):   # an agent CLI runs "!cmd" as a shell command and "/cmd" as a slash command
+        return None, {"error": "le message commence par « ! » ou « / » : l'agent l'exécuterait comme une commande, envoi refusé"}
     if len(text) > SEND_MAX:
         return None, {"error": f"message trop long ({len(text)} caractères, {SEND_MAX} au plus)"}
     t = next((t for t in snapshot() if t["address"] == addr), None)
@@ -602,7 +610,40 @@ def send_check(addr, text, since_ms):
     return t, None
 
 
+PAIRF = os.path.join(STATE_DIR, "pair_token")
+
+
+def pair_token():
+    """Secret that remote devices (the tablet, over Tailscale) must present to send text to agents. Created once, 0600."""
+    try:
+        with open(PAIRF) as f:
+            t = f.read().strip()
+            if t:
+                return t
+    except OSError:
+        pass
+    t = secrets.token_urlsafe(24)
+    os.makedirs(STATE_DIR, exist_ok=True)
+    fd = os.open(PAIRF, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(t)
+    return t
+
+
+PAIR = pair_token()
+
+
+def paired(h):
+    """The Mac itself (loopback) is trusted; any other client must carry the pairing cookie."""
+    if h.client_address[0] in ("127.0.0.1", "::1"):
+        return True
+    m = re.search(r"(?:^|;\s*)mg_pair=([^;]+)", h.headers.get("Cookie") or "")
+    return bool(m) and hmac.compare_digest(m.group(1), PAIR)
+
+
 def send_route(h, body):
+    if not paired(h):
+        return 200, "application/json", json.dumps({"error": "appareil non appairé : ouvre l'adresse d'appairage (scripts/pair-url.sh sur le Mac) sur cet appareil"}, ensure_ascii=False).encode()
     d = json.loads(body)
     addr, text = str(d.get("address", "")), str(d.get("text", ""))
     qs = [str(x) for x in d.get("questions") or []]
@@ -694,7 +735,7 @@ ROUTES["POST"]["/api/resume"] = resume_route
 
 
 def load_modules():
-    for name in ("stats", "oldherdr", "daily"):
+    for name in ("stats", "oldherdr", "daily", "backup"):
         try:
             importlib.import_module(name).register(sys.modules[__name__])
             print("module loaded:", name, flush=True)
@@ -737,7 +778,8 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, fmt, *a):
         # spike: keep an access log so we can see who reaches the server
         try:
-            with open("/tmp/hb-access.log", "a") as f:
+            fd = os.open(os.path.join(STATE_DIR, "access.log"), os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "a") as f:
                 f.write(f"{time.strftime('%H:%M:%S')} {self.client_address[0]} {fmt % a} UA={self.headers.get('User-Agent','')[:80]}\n")
         except Exception:
             pass
@@ -803,6 +845,13 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if not self.guard():
+            return
+        q = parse_qs(urlparse(self.path).query)
+        if q.get("pair") and hmac.compare_digest(q["pair"][0], PAIR):   # pairing link: remember this device, then go home
+            self.send_response(302)
+            self.send_header("Set-Cookie", f"mg_pair={PAIR}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000")
+            self.send_header("Location", "/")
+            self.end_headers()
             return
         if self.path.split("?")[0] in ("/stats", "/daily", "/daily/history") and "embed=1" not in self.path:
             with open(os.path.join(HERE, "index.html"), "rb") as f:   # the shell reopens the page in its overlay (music keeps playing)
@@ -894,7 +943,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--host", action="append", help="repeatable; 'tailscale' = this Mac's Tailscale address")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--allow-lan", action="store_true", help="allow --host 0.0.0.0 (the board has no password: not recommended)")
     a = ap.parse_args()
+    if not a.allow_lan and any(h in ("0.0.0.0", "::", "") for h in (a.host or [])):
+        sys.exit("refusing to listen on all interfaces: the board has no password. Use --host 127.0.0.1 --host tailscale (or --allow-lan).")
     load_modules()
     hosts = a.host or ["127.0.0.1"]
     for h in hosts:

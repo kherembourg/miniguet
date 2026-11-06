@@ -11,7 +11,8 @@ presence and waiting-time measures. Named gcal.py on purpose: `calendar.py` woul
 import datetime, json, os, re, subprocess, threading, time
 
 STATE = os.path.expanduser("~/.local/state/herdr-board/gcal.json")
-SCRATCH = os.environ.get("HERDR_BOARD_CWD", "/tmp")
+SCRATCH = os.environ.get("HERDR_BOARD_CWD") or os.path.expanduser("~/.local/state/herdr-board/scratch")   # private working folder
+os.makedirs(SCRATCH, mode=0o700, exist_ok=True)
 MIN_ATTENDEES = 2      # a timed event counts as a meeting when it has at least 2 attendees (you included), or is out of office
 REFRESH_S = 1800       # today and the next days are refetched every 30 min
 LOOKBACK_DAYS = 15
@@ -53,7 +54,7 @@ def _fetch(d0, d1):
     p = PROMPT.format(start=d0.isoformat() + "T00:00:00", end=d1.isoformat() + "T00:00:00")
     r = subprocess.run(
         ["claude", "-p", "--model", "sonnet", "--no-session-persistence", "--settings", '{"disableAllHooks":true}',
-         "--disable-slash-commands", "--allowedTools", "mcp__claude_ai_Google_Calendar__list_events"],
+         "--setting-sources", "user", "--disable-slash-commands", "--tools", "", "--allowedTools", "mcp__claude_ai_Google_Calendar__list_events"],
         input=p, capture_output=True, text=True, timeout=180, cwd=SCRATCH)
     txt = re.sub(r"^```(?:json)?|```$", "", r.stdout.strip(), flags=re.M).strip()
     arr = json.loads(txt)

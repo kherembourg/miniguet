@@ -12,6 +12,8 @@ from urllib.parse import parse_qs, urlparse
 import stats
 
 STATE = os.path.expanduser("~/.local/state/herdr-board")
+SCRATCH = os.environ.get("HERDR_BOARD_CWD") or f"{STATE}/scratch"   # private working folder of the claude -p calls
+os.makedirs(SCRATCH, mode=0o700, exist_ok=True)
 DIR = os.environ.get("HERDR_BOARD_DAILY_DIR", f"{STATE}/daily")
 CONF = f"{STATE}/daily_config.json"
 DEFAULT_CONF = {"time": "11:50", "skip_weekends": True,
@@ -165,8 +167,8 @@ def render(name, x):
 def _ask(prompt):
     r = subprocess.run(
         ["claude", "-p", "--model", "sonnet", "--no-session-persistence",
-         "--settings", '{"disableAllHooks":true}', "--disable-slash-commands"],
-        input=prompt, capture_output=True, text=True, timeout=300, cwd=os.environ.get("HERDR_BOARD_CWD", "/tmp"))
+         "--settings", '{"disableAllHooks":true}', "--setting-sources", "user", "--disable-slash-commands", "--tools", ""],
+        input=prompt, capture_output=True, text=True, timeout=300, cwd=SCRATCH)
     txt = re.sub(r"^```(?:json)?|```$", "", r.stdout.strip(), flags=re.M).strip()
     try:
         return json.loads(txt)

@@ -67,7 +67,8 @@ scripts/install-launchd.sh     # écoute sur 127.0.0.1 et sur l'adresse Tailscal
 1. Installe Tailscale sur le Mac et sur la tablette, avec le même compte.
 2. Ouvre `http://<nom-du-mac>:8765` (le nom MagicDNS court de Tailscale) dans Chrome. Il ne change pas quand tu passes du bureau à la maison.
 3. Chrome, menu ⋮, « Ajouter à l'écran d'accueil » : une icône Miniguet qui ouvre la page en plein écran.
-4. Appuie une fois sur la cloche et sur la note : les navigateurs bloquent le son avant un premier appui, et après un rechargement le bouton clignote tant qu'il n'est pas rappuyé.
+4. **Appairage (une seule fois par appareil).** Pour répondre aux agents depuis la tablette, elle doit être appairée : sur le Mac, lance `scripts/pair-url.sh`, ouvre l'adresse affichée sur la tablette. Elle mémorise l'appareil (cookie). Le Mac lui-même n'a pas besoin d'être appairé.
+5. Appuie une fois sur la cloche et sur la note : les navigateurs bloquent le son avant un premier appui, et après un rechargement le bouton clignote tant qu'il n'est pas rappuyé.
 
 **Calendrier (facultatif).** Dans Claude Code, tape `/mcp`, choisis « claude.ai Google Calendar » et autorise. Miniguet lit uniquement les horaires, le type et le nombre de participants des événements (jamais les titres). Une réunion compte si elle a au moins 2 participants.
 
@@ -86,15 +87,37 @@ Tout l'état est dans `~/.local/state/herdr-board/` (ce dossier n'est pas dans l
 | `daily_config.json` | `time` (11:50), `skip_weekends`, `ignore_topics` (sujets exclus du daily), `linear` (bases d'URL des tickets, par exemple `{"ENG": "https://linear.app/mon-espace/issue/"}`) |
 | `prices.json` (facultatif) | tarifs des modèles, remplace ceux du code (relevés le 2026-11-05 sur la page officielle) |
 | `gcal.json`, `stats_names.json` | cache du calendrier, noms des sujets |
+| `pair_token` (0600) | secret d'appairage des appareils distants : ne jamais le partager ni le sauvegarder |
+| `backup_config.json`, `backups/mirror.sqlite` | configuration de la sauvegarde, copie locale chiffrée |
+| `access.log`, `scratch/` | journal d'accès (0600), dossier de travail privé (0700) des appels `claude -p` |
 
 ## Sécurité
 
 Le serveur **n'a ni mot de passe ni chiffrement** et peut envoyer du texte à tes agents, qui ont accès à ton code et à ta machine. Il est donc conçu pour n'être joignable que de toi :
 - il n'écoute que sur `127.0.0.1` et sur l'adresse Tailscale (`--host tailscale`), jamais sur `0.0.0.0` ;
 - il refuse toute requête dont le nom d'hôte n'est pas `localhost`, une adresse de loopback ou Tailscale, ou un nom Tailscale (contre le détournement de nom DNS), et toute requête venant d'une autre origine (contre une page web qui tenterait d'écrire vers `localhost`) ;
+- **envoyer du texte à un agent exige l'appairage** : un appareil distant doit présenter le secret `pair_token` (cookie posé par l'adresse d'appairage) ; le Mac lui-même est exempté ;
+- un message commençant par `!` (commande shell) ou `/` (commande slash) est refusé à l'envoi ;
+- `--host 0.0.0.0` est refusé sauf `--allow-lan` ;
+- les appels `claude -p` tournent dans un dossier privé, sans réglages de projet ni outils intégrés (`--setting-sources user --tools ""`) ;
 - côté Tailscale, restreins l'accès à tes propres appareils.
 
 **Ce qui sort de la machine.** Le texte des écrans de terminal et des extraits de conversation est envoyé à `claude -p` (donc à Anthropic) pour en extraire des questions et des résumés. Les journaux de conversation peuvent contenir des secrets collés : ne partage pas les fichiers d'état. Rien d'autre n'est envoyé ailleurs.
+
+## Sauvegarde chiffrée
+
+`backup.py` copie l'état (`~/.local/state/herdr-board`) vers une **copie locale chiffrée** (`backups/mirror.sqlite`) et, une fois configurée, vers une base **Cloudflare D1** (gratuite). Sur un compte Cloudflare partagé, tout administrateur peut lire une base D1 : tout est donc **chiffré sur le Mac avant l'envoi** (AES-256 + HMAC, clé dans le Trousseau macOS). D1 ne contient que du texte chiffré, des noms de fichiers hachés, des tailles et des dates. Chaque version modifiée d'un fichier est conservée ; un fichier inchangé n'est pas renvoyé. La sauvegarde tourne 2 minutes après le démarrage, puis toutes les 6 heures. `pair_token`, le journal d'accès, le cache du calendrier et le dossier de travail ne sont pas sauvegardés.
+
+```bash
+python3 backup.py status                 # clé, D1 configurée, dernière sauvegarde
+python3 backup.py run                    # sauvegarde maintenant
+python3 backup.py verify                 # télécharge, déchiffre, compare avec les fichiers
+python3 backup.py restore --to /tmp/restauration [--at 2026-11-06] [--from d1]
+python3 backup.py export-key             # clé de secours : à garder dans un gestionnaire de mots de passe
+python3 backup.py setup --account <ID>   # crée la base D1 « miniguet » ; demande le jeton API (D1 Edit) sans l'afficher
+```
+
+**Perdre la clé = perdre les données** : elle seule déchiffre. La recherche texte se fait en local sur les fichiers en clair (la copie D1 n'est qu'une sauvegarde).
 
 ## Fonctionnement
 
@@ -103,7 +126,7 @@ Le serveur **n'a ni mot de passe ni chiffrement** et peut envoyer du texte à te
 - `stats.py` + `stats.html` : mesures, tirées des journaux de conversation (`~/.claude/projects`) ; `gcal.py` : réunions du calendrier.
 - `daily.py` + `daily.html` + `daily-history.html` : résumé du daily.
 - `index.html` : la page principale (JavaScript sans dépendance). `assets/` : logo, icônes, `sound.js`, musique.
-- `launchd/`, `scripts/` : démarrage automatique.
+- `backup.py` : sauvegarde chiffrée. `launchd/`, `scripts/` : démarrage automatique, adresse d'appairage.
 
 Les sessions principales et leurs écrans viennent de `hc events` et `hc read`. Le lien terminal, conversation passe par `~/.claude/sessions/<pid>.json`.
 
@@ -117,7 +140,7 @@ Les sessions principales et leurs écrans viennent de `hc events` et `hc read`. 
 
 ## Idées en attente
 
-Sauvegarde chiffrée des données (par exemple dans une base Cloudflare D1), liens cliquables dans les notes, ordre de traitement conseillé, réponses depuis l'ancien herdr.
+Recherche texte globale (index SQLite FTS5 local, reconstruit depuis les fichiers), liens cliquables dans les notes, ordre de traitement conseillé, réponses depuis l'ancien herdr.
 
 ## Licence
 
