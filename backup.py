@@ -43,9 +43,13 @@ def _keychain(service, value=None):
     if value is None:
         r = subprocess.run(["/usr/bin/security", "find-generic-password", "-a", acct, "-s", service, "-w"], capture_output=True, text=True)
         return r.stdout.strip() if r.returncode == 0 else None
-    r = subprocess.run(["/usr/bin/security", "add-generic-password", "-U", "-a", acct, "-s", service, "-w", value], capture_output=True, text=True)
-    if r.returncode:
-        raise RuntimeError("Keychain: " + r.stderr.strip()[:200])
+    # the secret goes through the stdin of `security -i`, never through argv (visible to every process in `ps`)
+    if not re.fullmatch(r"[A-Za-z0-9._~+/=-]+", value) or not re.fullmatch(r"[A-Za-z0-9._ -]+", acct + service):
+        raise ValueError("unexpected characters in a Keychain value")
+    r = subprocess.run(["/usr/bin/security", "-i"], input=f'add-generic-password -U -a "{acct}" -s "{service}" -w "{value}"\n',
+                       capture_output=True, text=True)
+    if r.returncode or "error" in (r.stdout + r.stderr).lower():
+        raise RuntimeError("Keychain: " + (r.stderr or r.stdout).strip()[:200])
 
 
 def master_key(create=False):
