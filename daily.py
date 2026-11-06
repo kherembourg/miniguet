@@ -34,8 +34,10 @@ Réponds UNIQUEMENT par un JSON :
 {{"annoncer": {{"fait": [str], "synchro": [str], "prochain": [str]}}, "sujets": [{{"sujet": str, "puces": [str]}}], "bloque": [{{"sujet": str, "texte": str}}]}}
 
 1. "annoncer" : le texte que l'utilisateur DIRA À L'ORAL à son équipe, environ une minute et demie, 170 à 220 mots AU TOTAL. Il s'adresse
-   à des collègues qui n'ont PAS lu les conversations : chaque phrase doit se comprendre seule, dire de quoi on parle en mots simples et
-   pourquoi ça compte. Phrases de 25 mots maximum, un élément de liste = une phrase.
+   à des collègues qui n'ont PAS lu les conversations : chaque point doit se comprendre seul, dire de quoi on parle en mots simples et
+   pourquoi ça compte. PREMIÈRE PERSONNE : l'utilisateur parle de son propre travail (« j'ai relu », « j'ai décidé », « je vais
+   mesurer »), jamais « on a » pour son travail ; « on » seulement pour une décision prise avec l'équipe. Chaque élément d'une liste est
+   UNE puce affichée à l'écran : un sujet ou un point par puce, 25 mots maximum, une seule phrase.
    INTERDIT à l'oral : numéros ou codes de tickets (ENG-123, ROM-4), numéros de PR, « demandes 1 à 9 », noms de branches, de fichiers, de
    fonctions, de variables, de flags techniques. Remplace-les par ce qu'ils désignent (par exemple « le ticket sur la limite de taille des
    requêtes devant l'API », « la relecture de la PR de Marie sur l'écriture des écrans »). Les prénoms des collègues, les noms de produits et
@@ -53,8 +55,8 @@ Réponds UNIQUEMENT par un JSON :
 3. "bloque" : ce qui attend encore l'utilisateur ou une autre personne, d'après les derniers messages de l'agent restés sans réponse,
    avec les identifiants utiles. 20 mots maximum par point. Liste vide si rien.
 - Style : phrases directes, pas de tirets cadratins, jamais « c'est que », pas de jargon inutile, vocabulaire utilisé dans les conversations
-  et dans le code. Attention à qui a agi : « J'ai » seulement pour ce que l'utilisateur a fait ou décidé lui-même ; pour le travail de
-  l'agent, écris « on a » ou nomme ce qui a été fait. Ne recopie aucun secret ni jeton.
+  et dans le code. Dans la partie orale, tout est à la première personne (l'utilisateur a mené ces travaux avec ses agents).
+  Dans les détails, tu peux nommer ce que l'agent a fait. Ne recopie aucun secret ni jeton.
 
 {sujets}"""
 

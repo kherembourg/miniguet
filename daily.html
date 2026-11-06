@@ -42,6 +42,8 @@ h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim)
 .blk{background:var(--card);border-left:6px solid var(--work);border-radius:14px;padding:14px 18px}
 .blk li small{color:var(--dim);font-size:12px;font-weight:600}
 .say .grp{color:var(--waitt)}
+.say p.grp{font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin:14px 0 4px}.say p.grp:first-of-type{margin-top:0}
+.say ul.sp{margin:0 0 4px;padding-left:22px}.say ul.sp li{font-size:18px;line-height:1.4;margin:6px 0}
 h2.mine{margin-top:34px;padding-top:18px;border-top:1px solid var(--line)}
 .topic a,.blk a{color:var(--workt)}
 .empty,.rest{color:var(--dim);line-height:1.5}
@@ -70,8 +72,10 @@ const dur = ms => { const m = Math.round((ms || 0) / 60000); return m < 60 ? m +
 const day = (d, o) => new Date(d).toLocaleDateString("fr-FR", o);
 const when = ms => day(ms, {weekday: "short", day: "2-digit", month: "2-digit"}) + " " + new Date(ms).toLocaleTimeString("fr-FR", {hour: "2-digit", minute: "2-digit"});
 
-const speech = s => s.annoncer.map(p => p.replace(/^[^:]{1,20} : /, ""));   // the spoken text, without the group labels
-const words = s => speech(s).join(" ").split(/\s+/).filter(Boolean).length;
+const GROUPS = [["fait", "Fait"], ["synchro", "Synchro"], ["prochain", "Prochaines 24 h"]];
+const speech = s => s.annoncer.map(p => p.replace(/^[^:]{1,20} : /, ""));   // fallback for old days: one paragraph per group
+const speechText = s => s.annoncer_parts ? GROUPS.filter(([k]) => (s.annoncer_parts[k] || []).length).map(([k, l]) => l + "\n" + s.annoncer_parts[k].map(x => "- " + x).join("\n")).join("\n\n") : speech(s).join("\n\n");
+const words = s => (s.annoncer_parts ? GROUPS.flatMap(([k]) => s.annoncer_parts[k] || []) : speech(s)).join(" ").split(/\s+/).filter(Boolean).length;
 const mmss = n => { const sec = Math.round(n / 150 * 60); return sec < 60 ? sec + " s" : Math.floor(sec / 60) + " min " + String(sec % 60).padStart(2, "0"); };
 let LINEAR = {};
 function linked(parent, text) {   // ticket ids (ENG-12, ROM-3) become links when a base URL is configured
@@ -85,7 +89,7 @@ function linked(parent, text) {   // ticket ids (ENG-12, ROM-3) become links whe
   parent.append(text.slice(i));
 }
 function plain(s) {   // spoken text only, ready to paste or read
-  return speech(s).join("\n\n").trim();
+  return speechText(s).trim();
 }
 function notes(s) {   // the detailed notes, plain text
   const out = ["Daily du " + day(s.to_ms, {weekday: "long", day: "numeric", month: "long"}), ""];
@@ -109,7 +113,14 @@ function render(s) {
   if (s.annoncer.length) {
     const b = el("div", "say");
     b.append(el("div", "lab", (s.date === new Date().toLocaleDateString("sv") ? "À dire aujourd'hui" : "À dire à l'oral") + " · " + words(s) + " mots, environ " + mmss(words(s))));
-    for (const p of s.annoncer) {
+    if (s.annoncer_parts) {   // one bullet per subject, grouped
+      for (const [k, l] of GROUPS) {
+        const items = s.annoncer_parts[k] || [];
+        if (!items.length) continue;
+        b.append(el("p", "grp", l));
+        const u = el("ul", "sp"); for (const x of items) u.append(el("li", null, x)); b.append(u);
+      }
+    } else for (const p of s.annoncer) {
       const m = p.match(/^([^:]{1,20}) : (.*)$/), q = el("p");
       if (m) { q.append(el("b", "grp", m[1] + " ")); q.append(m[2]); } else q.append(p);
       b.append(q);
