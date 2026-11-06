@@ -38,6 +38,8 @@ Réponds UNIQUEMENT par un JSON :
    pourquoi ça compte. PREMIÈRE PERSONNE : l'utilisateur parle de son propre travail (« j'ai relu », « j'ai décidé », « je vais
    mesurer »), jamais « on a » pour son travail ; « on » seulement pour une décision prise avec l'équipe. Chaque élément d'une liste est
    UNE puce affichée à l'écran : un sujet ou un point par puce, 25 mots maximum, une seule phrase.
+   Chaque action annoncée dit son OBJET et son but : jamais « j'ai écrit à X » ou « j'ai relancé Y » sans préciser pour obtenir quoi. Si le but
+   n'est pas clair dans les extraits, ne cite pas l'action.
    INTERDIT à l'oral : numéros ou codes de tickets (ENG-123, ROM-4), numéros de PR, « demandes 1 à 9 », noms de branches, de fichiers, de
    fonctions, de variables, de flags techniques. Remplace-les par ce qu'ils désignent (par exemple « le ticket sur la limite de taille des
    requêtes devant l'API », « la relecture de la PR de Marie sur l'écriture des écrans »). Les prénoms des collègues, les noms de produits et
