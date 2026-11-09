@@ -181,7 +181,7 @@ $('snd').onclick=()=>MG.sound.toggleSound();$('mus').onclick=()=>MG.sound.toggle
 MG.sound.onChange(sndUI);MG.sound.restore();sndUI();
 function age(ms){const s=Math.max(0,Math.floor((Date.now()+off-ms)/1000));
  if(s<60)return s+' s';const m=Math.floor(s/60);if(m<60)return m+' min';
- const h=Math.floor(m/60);return h+' h '+String(m%60).padStart(2,'0')}
+ const h=Math.floor(m/60),mm=String(m%60).padStart(2,'0');return h>=24?Math.floor(h/24)+' j '+h%24+' h '+mm:h+' h '+mm}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 const HID=new Set();let RESTOPEN=false,SNOPEN=false,ZOPEN=false,LASTHTML='';
 const SN=new Map(),LATER=new Set();  // SN: item key -> until, optimistic until the next /api/state; LATER: items showing the "Plus tard" choices
