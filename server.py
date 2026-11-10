@@ -729,6 +729,23 @@ def snooze_item_route(h, body):
     return 200, "application/json", b"{}"
 
 
+def sections_route(h, body):
+    """address -> {section, since_ms, q, todo, deadline}: the board's grouping, for other clients (the Herdr app sidebar mod)."""
+    now_ms = int(time.time() * 1000)
+    out = {}
+    for a in build_state()["agents"]:
+        q = a.get("q") or {}
+        st = a["status"]
+        mine = st == "error" or (st == "done" and (not a.get("q") or q.get("pending") or q.get("error")
+                                                   or q.get("open") or q.get("todo")))
+        z = a.get("snooze")
+        sec = "snoozed" if z and z.get("until", 0) > now_ms else "deadline" if a.get("deadline") else "mine" if mine else "rest"
+        out[a["address"]] = {"section": sec, "since_ms": a.get("since_ms") or 0, "q": len(q.get("open") or []),
+                             "todo": len(q.get("todo") or []), "deadline": (a.get("deadline") or {}).get("date")}
+    return 200, "application/json", json.dumps(out).encode()
+
+
+ROUTES["GET"]["/api/sections"] = sections_route
 ROUTES["POST"]["/api/snooze"] = snooze_route
 ROUTES["POST"]["/api/snooze-item"] = snooze_item_route
 ROUTES["POST"]["/api/send"] = send_route
