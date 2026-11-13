@@ -486,6 +486,7 @@ def build_state():
             "status": st,
             "msg": t["status"].get("msg", ""),
             "since_ms": t.get("status_ms"),
+            "kind": t["status"].get("kind"),
             "unseen": st == "done" and t.get("turn", 0) > seen,
             "cwd": t.get("cwd", ""),
             "deadline": DL.get(t["address"]),
@@ -691,18 +692,31 @@ def paired(h):
     return bool(m) and hmac.compare_digest(m.group(1), PAIR)
 
 
+def _hc_error(r, what):
+    """Error message of a failed `hc` run (JSON error on stdout when there is one), None when it went through."""
+    if not r.returncode:
+        return None
+    try:
+        return json.loads(r.stdout)["error"]["message"]
+    except Exception:
+        return (r.stdout or r.stderr).strip()[:200] or f"{what} a échoué ({r.returncode})"
+
+
 def hc_send(addr, text):
     """Type `text` into session `addr` with hc: the error message, or None when it went through."""
     if DEMO:
         demo_log(f"send {addr} {text}")
         return None
-    r = subprocess.run([HC, "send", "--", addr, text], capture_output=True, text=True, timeout=60)
-    if r.returncode:
-        try:
-            return json.loads(r.stdout)["error"]["message"]
-        except Exception:
-            return (r.stdout or r.stderr).strip()[:200] or f"hc send a échoué ({r.returncode})"
-    return None
+    return _hc_error(subprocess.run([HC, "send", "--", addr, text], capture_output=True, text=True, timeout=60), "hc send")
+
+
+def hc_keys(addr, key):
+    """Press `key` (a digit: it picks that option of a numbered menu, no Enter needed) in session `addr`: the error
+    message, or None when it went through. `hc keys` has no option to skip its quiet-terminal wait."""
+    if DEMO:
+        demo_log(f"keys {addr} {key}")
+        return None
+    return _hc_error(subprocess.run([HC, "keys", addr, key], capture_output=True, text=True, timeout=10), "hc keys")
 
 
 def send_route(h, body):
@@ -812,7 +826,7 @@ ROUTES["POST"]["/api/resume"] = resume_route
 
 def load_modules():
     # the demo loads only the new modules: the others have their own production paths, background tasks and `claude -p` calls
-    for name in ("thread", "choose", "voice") if DEMO else ("stats", "oldherdr", "daily", "backup", "thread"):
+    for name in ("thread", "choose", "voice") if DEMO else ("stats", "oldherdr", "daily", "backup", "thread", "choose"):
         try:
             importlib.import_module(name).register(sys.modules[__name__])
             print("module loaded:", name, flush=True)

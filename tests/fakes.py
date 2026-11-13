@@ -1,5 +1,5 @@
 """Fake `srv` (the server module) and handler for the module tests: no hc, no Claude, no server.py import."""
-import os, tempfile, threading
+import os, shutil, tempfile, threading, weakref
 
 
 class FakeHandler:
@@ -23,8 +23,8 @@ class FakeSrv:
         self.keys_sent = []                # [(address, key)]
         self.LOCK = threading.Lock()
         self.SEND_LOCK = threading.Lock()
-        self._tmp = tempfile.TemporaryDirectory()
-        self.STATE_DIR = self._tmp.name
+        self.STATE_DIR = tempfile.mkdtemp(prefix="miniguet-fake-")
+        weakref.finalize(self, shutil.rmtree, self.STATE_DIR, True)
         self.SCRATCH = os.path.join(self.STATE_DIR, "scratch")
         os.makedirs(self.SCRATCH, mode=0o700)
         self.SENTF = os.path.join(self.STATE_DIR, "sent.jsonl")

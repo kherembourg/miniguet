@@ -164,3 +164,22 @@ class ThreadDemoTest(DemoServer):
     def test_thread_keeps_assistant_starting_with_tag(self):
         d = self.thread("t6")
         self.assertTrue(d["agent"]["text"].startswith("<b>Résultat</b>"), d["agent"]["text"])
+
+
+class ChooseDemoTest(DemoServer):
+    def agent(self, addr):
+        return next(a for a in self.get_json("/api/state")["agents"] if a["address"] == addr)
+
+    def test_state_carries_kind_and_menu(self):
+        a = self.agent("t2")
+        self.assertEqual(a["kind"], "permission")
+        self.assertEqual([o["role"] for o in a["menu"]["options"]], ["approve", "always", "always", "deny"])
+        self.assertEqual(self.agent("t5")["menu"]["kind"], "question")
+        self.assertNotIn("menu", self.agent("t6"))
+
+    def test_choose_presses_the_key_in_out_log(self):
+        a = self.agent("t3")
+        r = self.post_json("/api/choose", {"address": "t3", "key": "3", "menu_hash": a["menu"]["menu_hash"], "since_ms": a["since_ms"]})
+        self.assertEqual(r, {"ok": True, "label": "No"})
+        with open(os.path.join(self.demo, "out.log")) as f:
+            self.assertIn("keys t3 3", f.read())

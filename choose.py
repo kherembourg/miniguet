@@ -2,7 +2,7 @@
 
 Pure core (no import of server.py): read the menu on a screen, hash the whole request, check before a key is sent.
 """
-import hashlib, json, re
+import hashlib, json, os, re, time
 
 OPTION = re.compile(r"^\s*(?:❯\s*)?(\d)\.\s+(.+?)\s*$")
 FRAME_TOP = re.compile(r"^─{20,}\s*$")           # top edge of the request frame
@@ -92,3 +92,60 @@ def check_choice(state, kind, lines, key, expected_hash):
     if not opt:
         return None, "cette option n'est pas proposée"
     return opt, None
+
+
+# ---- module part: state annotation and POST /api/choose ----
+CHOSEN = {}   # address -> (status_ms, menu_hash) of the menu already answered from the board: a double tap sends one key
+
+
+def annotate(srv, terms, agents):
+    """Give each blocked session (permission / question) its menu, read from the screen at every state build:
+    no cache, so a request Claude chains right after another is never shown stale."""
+    for a in agents:
+        kind = a.get("kind")
+        if a.get("status") != "blocked" or kind not in ("permission", "question"):
+            continue
+        try:
+            p = parse_menu(srv.read_screen(a["address"]), kind)
+        except Exception:
+            p = None
+        a["menu"] = {**p, "menu_hash": menu_hash(p)} if p else {"kind": kind, "options": [], "menu_hash": None}
+
+
+def _json(obj):
+    return 200, "application/json", json.dumps(obj, ensure_ascii=False).encode()
+
+
+def register(srv):
+    def choose_route(h, body):
+        if not srv.paired(h):
+            return _json({"error": "appareil non appairé : ouvre l'adresse d'appairage (scripts/pair-url.sh sur le Mac) sur cet appareil"})
+        d = json.loads(body)
+        addr, key, mh, since = str(d.get("address", "")), str(d.get("key", "")), d.get("menu_hash"), d.get("since_ms")
+        with srv.SEND_LOCK:
+            t = next((t for t in srv.snapshot() if t["address"] == addr), None)
+            if not t or not srv.main_agent(t):
+                return _json({"error": "session inconnue ou fermée : envoi refusé"})
+            if since != t.get("status_ms"):
+                return _json({"error": "la session a avancé depuis l'affichage : relis la demande"})
+            if CHOSEN.get(addr) == (t["status_ms"], mh):
+                return _json({"error": "déjà envoyé"})
+            st = t["status"]
+            opt, err = check_choice(st["state"], st.get("kind"), srv.read_screen(addr), key, mh)   # nothing slow between this read and the key
+            if err:
+                return _json({"error": err})
+            err = srv.hc_keys(addr, key)
+            if not err:
+                CHOSEN[addr] = (t["status_ms"], mh)
+            entry = {"ts": int(time.time() * 1000), "address": addr, "space": (t.get("labels") or {}).get("where"),
+                     "choose": key, "label": opt["label"], "role": opt["role"], "kind": st.get("kind")}
+            if err:
+                entry["error"] = err
+            with srv.LOCK:
+                os.makedirs(os.path.dirname(srv.SENTF), exist_ok=True)
+                with open(srv.SENTF, "a") as f:
+                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        return _json({"error": "envoi échoué : " + err} if err else {"ok": True, "label": opt["label"]})
+
+    srv.ROUTES["POST"]["/api/choose"] = choose_route
+    srv.SNAPSHOT_HOOKS.append(lambda terms, agents: annotate(srv, terms, agents))
