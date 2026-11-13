@@ -1,4 +1,4 @@
-import { grouped, waitingCount, dlDays } from "./groups.js"
+import { grouped, waitingAgents, dlDays } from "./groups.js"
 
 const $ = (id) => document.getElementById(id)
 let DESK = false
@@ -27,8 +27,9 @@ export function renderDesk(ctx) {
   if (!DESK) return
   const now = ctx.nowMs()
   const ag = ctx.agents()
-  const nw = waitingCount(ag, now, ctx.hidden)
-  const groups = grouped(ag, now, ctx.hidden).filter((g) => ["error", "approve", "question"].includes(g.id))
+  const wait = waitingAgents(ag, now, ctx.hidden)
+  const nw = wait.length
+  const groups = grouped(wait, now, ctx.hidden)
   const names = groups.flatMap((g) => g.items).slice(0, 3)
   const hot = groups.some((g) => g.id === "error") || ag.some((x) => x.deadline && dlDays(x) <= 0)
   const h = new Date().getHours()

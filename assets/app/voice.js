@@ -17,7 +17,7 @@ const clock = () => {
 function paint() {
   document.querySelectorAll("button.mic").forEach((b) => {
     b.dataset.state = S.state
-    b.textContent = S.state === "rec" ? clock() : S.state === "busy" ? "…" : "🎙"
+    b.textContent = S.state === "rec" ? clock() : S.state === "busy" || S.state === "starting" ? "…" : "🎙"
     b.setAttribute("aria-label", S.state === "rec" ? "Arrêter la dictée" : "Dicter")
     b.closest("ui-button")?.toggleAttribute("disabled", S.state === "busy")
   })
@@ -25,32 +25,39 @@ function paint() {
 
 function insert(text, ctx) {
   const t = document.querySelector(`[data-fk="${CSS.escape(S.fk)}"]`)
-  if (!t) return ctx.note("Dictée terminée, mais le champ n'est plus affiché : " + text)
+  if (!t) return ctx.note("dictée ignorée : la session a changé")
   t.value = t.value && !/\s$/.test(t.value) ? t.value + " " + text : t.value + text
   t.dispatchEvent(new Event("input", { bubbles: true }))
   t.focus()
   t.setSelectionRange(t.value.length, t.value.length)
 }
 
-async function stop(ctx) {
+function stop(ctx) {
   clearInterval(S.timer)
   const rec = S.rec
   if (!rec || rec.state === "inactive") return
   rec.stop()
 }
 
+const release = () => { if (S.stream) S.stream.getTracks().forEach((t) => t.stop()); S.stream = null }
+
 async function start(textarea, ctx) {
+  S.state = "starting"
+  S.fk = textarea.dataset.fk
+  paint()
   try {
     S.stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    S.chunks = []
+    S.rec = new MediaRecorder(S.stream)
   } catch (e) {
+    release()
+    S.state = "idle"
+    paint()
     return ctx.note("Micro refusé ou introuvable")
   }
-  S.fk = textarea.dataset.fk
-  S.chunks = []
-  S.rec = new MediaRecorder(S.stream)
   S.rec.ondataavailable = (e) => e.data.size && S.chunks.push(e.data)
   S.rec.onstop = async () => {
-    S.stream.getTracks().forEach((t) => t.stop())
+    release()
     clearInterval(S.timer)
     const blob = new Blob(S.chunks, { type: S.rec.mimeType || "audio/mp4" })
     S.state = "busy"

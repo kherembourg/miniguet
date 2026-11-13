@@ -59,13 +59,26 @@ export function grouped(agents, nowMs, hidden = new Set()) {
 }
 
 // same rule as the classic counter, plus every blocked session
-export function waitingCount(agents, nowMs, hidden = new Set()) {
+export function waitingAgents(agents, nowMs, hidden = new Set()) {
   return agents.filter((a) => {
     if (isSnoozed(a, nowMs)) return false
     if (a.status === "error" || a.status === "blocked") return true
     if (a.status !== "done") return false
     return !a.q || a.q.pending || a.q.error || openQuestions(a, nowMs, hidden).length > 0 || openTodos(a, nowMs, hidden).length > 0
-  }).length
+  })
+}
+
+export const waitingCount = (agents, nowMs, hidden = new Set()) => waitingAgents(agents, nowMs, hidden).length
+
+// "surveille (2 monitors, 1 shell)": a finished session with nothing to answer but background tasks still running
+export function watching(a, nowMs, hidden = new Set()) {
+  const bg = a.status === "done" && a.q && a.q.bg
+  if (!bg || !(bg.monitors + bg.shells)) return ""
+  if (waitingAgents([a], nowMs, hidden).length) return ""
+  const p = []
+  if (bg.monitors) p.push(bg.monitors + " monitor" + (bg.monitors > 1 ? "s" : ""))
+  if (bg.shells) p.push(bg.shells + " shell" + (bg.shells > 1 ? "s" : ""))
+  return "surveille (" + p.join(", ") + ")"
 }
 
 export function badge(a, nowMs, hidden = new Set()) {
@@ -87,5 +100,28 @@ export function summary(a, nowMs = 0, hidden = new Set()) {
   if (a.menu && (a.menu.detail || a.menu.question)) return a.menu.detail || a.menu.question
   const open = a.status === "done" ? openQuestions(a, nowMs, hidden) : []
   if (open.length) return open[0]
+  const w = watching(a, nowMs, hidden)
+  if (w) return w
   return a.msg || a.title || ""
+}
+
+// A session is fresh when it newly enters a waiting group (error, approve, question, review),
+// keyed on address:since_ms, so every finished turn rings once. `prev` is the map returned last time.
+export function detectFresh(agents, prev, nowMs, hidden, first) {
+  const cur = new Map()
+  const fresh = new Set()
+  let kind = "new"
+  for (const x of agents) {
+    const key = x.address + ":" + x.since_ms
+    const asleep = isSnoozed(x, nowMs)
+    cur.set(x.address, asleep ? "z" : key)
+    if (first || asleep || prev.get(x.address) === key) continue
+    if (!["error", "approve", "question", "review"].includes(groupOf(x, nowMs, hidden))) continue
+    fresh.add(x.address)
+    const n = dlDays(x)
+    const k = x.status === "error" ? "error" : n !== null && n <= 1 ? "deadline" : "new"
+    if (k === "error" || (k === "deadline" && kind === "new")) kind = k
+  }
+  for (const [k, v] of prev) if (!cur.has(k)) cur.set(k, v)  // blinking out of the list for a moment is not new on return
+  return { fresh, kind: fresh.size ? kind : null, cur }
 }

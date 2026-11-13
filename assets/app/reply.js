@@ -38,3 +38,6 @@ export function clearDraft(address) {
   DRAFTS.delete(address)
   PREVIEWS.delete(address)
 }
+
+// Key of a text field that voice input can fill: per session (and per question in the rafale).
+export const fieldKey = (kind, address, question = "") => kind + "\u0001" + address + "\u0001" + question

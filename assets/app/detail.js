@@ -1,6 +1,6 @@
-import { badge, groupOf, openQuestions, openTodos, isSnoozed, dlDays } from "./groups.js"
+import { badge, groupOf, openQuestions, openTodos, isSnoozed, dlDays, watching } from "./groups.js"
 import { post } from "./api.js"
-import { draftFor, makePreview, clearDraft, PREVIEWS } from "./reply.js"
+import { draftFor, makePreview, clearDraft, PREVIEWS, fieldKey } from "./reply.js"
 import { micButton } from "./voice.js"
 
 const KEY = "\u0001"
@@ -103,10 +103,23 @@ export async function chooseOption(ctx, agent, opt, since_ms) {
   }
 }
 
-export function menuButtons(ctx, agent, container, onSent) {
+// The displayed request or the selected session changed: keep the buttons off for a second so a tap aimed at the old one is lost.
+const GATE = { key: "", at: 0 }
+function gated(agent, redraw) {
+  const key = agent.address + "|" + (agent.menu && agent.menu.menu_hash)
+  if (key !== GATE.key) {
+    GATE.key = key
+    GATE.at = Date.now()
+    setTimeout(redraw, 1050)
+  }
+  return Date.now() - GATE.at < 1000
+}
+
+// onDone(ok) runs after every attempt; redraw repaints whoever shows the buttons (the panel by default).
+export function menuButtons(ctx, agent, container, { onDone, redraw } = {}) {
   const m = agent.menu
   const since_ms = agent.since_ms
-  const busy = SENDING.has(agent.address)
+  const off = SENDING.has(agent.address) || gated(agent, redraw || (() => ctx.render()))
   const manyAlways = m.options.filter((o) => o.role === "always").length > 1
   for (const opt of m.options) {
     // two "always" options would read the same: keep the start of the real label so each one says what it does
@@ -115,30 +128,33 @@ export function menuButtons(ctx, agent, container, onSent) {
     const { w, b } = btn(text, "opt act")
     b.dataset.role = opt.role
     b.dataset.agentConfirm = "Répond au menu dans le terminal"
-    if (busy) w.setAttribute("disabled", "")
-    b.addEventListener("click", async () => { if (await chooseOption(ctx, agent, opt, since_ms) && onSent) onSent() })
+    if (off) w.setAttribute("disabled", "")
+    b.addEventListener("click", async () => { const ok = await chooseOption(ctx, agent, opt, since_ms); if (onDone) onDone(ok) })
     container.append(w)
   }
 }
 
-function menuCard(ctx, x, g) {
+// One card for the panel and the rafale. `full` shows the whole request in the scrollable box with no "Voir tout".
+export function menuCard(ctx, x, g, { full: showFull = false, onDone, redraw } = {}) {
   const m = x.menu
   const card = el("div", "actioncard")
   card.dataset.g = g
   card.style.setProperty("--gc", `var(--c-${g})`)
+  const terminal = (m && m.terminal_only) || []
   if (!m || !m.options || !m.options.length) {
     card.append(el("h3", null, m && m.kind === "permission" ? "Autorisation demandée" : "Question posée"))
-    if (m && (m.question || m.detail)) card.append(el("div", "cmd", m.detail || m.question))
+    if (m && (m.question || m.detail)) card.append(el("div", "cmd", m.full || m.detail || m.question))
     card.append(el("p", "hint", "Réponds dans le terminal : menu non reconnu"))
+    if (terminal.length) card.append(el("p", "hint", "À choisir dans le terminal : " + terminal.join(" ; ")))
     return card
   }
   card.append(el("h3", null, m.kind === "permission" ? "Autorisation demandée" + (m.tool ? " · " + m.tool : "") : m.question || "Question"))
   if (m.kind === "permission" && m.question) card.append(el("p", "hint", m.question))
   if (m.kind === "permission" || m.detail) {
     const k = x.address + "|menu"
-    const full = EXPANDED.has(k) && m.truncated
-    card.append(el("div", "cmd", full ? m.full : m.detail))
-    if (m.truncated) {
+    const full = showFull || (EXPANDED.has(k) && m.truncated)
+    card.append(el("div", "cmd", full ? m.full || m.detail : m.detail))
+    if (m.truncated && !showFull) {
       const t = el("button", "more", full ? "Réduire" : "Voir tout")
       t.type = "button"
       t.addEventListener("click", () => { full ? EXPANDED.delete(k) : EXPANDED.add(k); ctx.render() })
@@ -146,9 +162,10 @@ function menuCard(ctx, x, g) {
     }
   }
   const row = el("div", "btns")
-  menuButtons(ctx, x, row)
+  menuButtons(ctx, x, row, { onDone, redraw })
   card.append(row)
   for (const o of m.options.filter((o) => o.role === "always")) card.append(el("p", "hint", "Toujours = " + o.label))
+  if (terminal.length) card.append(el("p", "hint", "À choisir dans le terminal : " + terminal.join(" ; ")))
   if (m.free_text) card.append(el("p", "hint", "Pour une réponse libre : réponds dans le terminal"))
   return card
 }
@@ -160,7 +177,7 @@ function fieldWithMic(ctx, x, d) {
   const ta = el("ui-textarea")
   const t = el("textarea")
   t.value = d.free
-  t.dataset.fk = "free"
+  t.dataset.fk = fieldKey("free", x.address)
   t.setAttribute("autocapitalize", "sentences")
   t.addEventListener("input", () => { d.free = t.value; PREVIEWS.delete(x.address) })
   ta.append(t)
@@ -558,7 +575,7 @@ function moreSection(ctx, x, now) {
 // ---- thread ----
 function bubble(ctx, x, which, m) {
   const b = el("div", "bubble" + (which === "me" ? " me" : ""))
-  b.append(el("small", null, which === "me" ? "Toi" : m.screen ? "Agent (écran)" : "Agent"))
+  b.append(el("small", null, (which === "me" ? "Toi" : m.screen ? "Agent (écran)" : "Agent") + (m.ts ? " · il y a " + ctx.age(m.ts) : "")))
   const k = x.address + "|" + which
   const full = EXPANDED.has(k)
   b.append(document.createTextNode(full ? m.full : m.text))
@@ -595,6 +612,8 @@ export function renderDetail(agent, thread, el0, ctx) {
   chip.style.setProperty("--gc", `var(--c-${g})`)
   chips.append(chip)
   if (isSnoozed(agent, now)) chips.append(el("span", "chip", "💤 reportée " + (isInf(agent.snooze.until) ? until$(agent.snooze.until) : until$(agent.snooze.until) + " à " + fmtH(agent.snooze.until))))
+  const wt = watching(agent, now, ctx.hidden)
+  if (wt) chips.append(el("span", "chip", wt))
   root.append(chips)
   if (agent.status === "working" && agent.stalled_min) root.append(el("div", "stall", "⚠ bloquée ? depuis " + agent.stalled_min + " min"))
 

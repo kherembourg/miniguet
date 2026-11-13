@@ -1,7 +1,7 @@
 import { grouped, isSnoozed, openQuestions } from "./groups.js"
-import { draftFor, makePreview, answerText, PREVIEWS, DRAFTS } from "./reply.js"
+import { draftFor, makePreview, answerText, PREVIEWS, fieldKey } from "./reply.js"
 import { post } from "./api.js"
-import { menuButtons, sendFrozen, sendWarning, snoozeItem, dismissMany } from "./detail.js"
+import { menuCard, sendFrozen, sendWarning, snoozeItem, dismissMany } from "./detail.js"
 import { micButton } from "./voice.js"
 
 const $ = (id) => document.getElementById(id)
@@ -70,16 +70,23 @@ function next(ctx) {
   if (RAF.i < RAF.cards.length - 1) { RAF.i++; draw(ctx) } else end(ctx)
 }
 
-function menuCard(ctx, body, c) {
+const waiting = (x) => x && x.status === "blocked" && x.menu && x.menu.options && x.menu.options.length
+
+function menuStep(ctx, body, c) {
   const x = ctx.agent(c.a)
-  if (!x || !x.menu) { body.append(el("p", "none", "Cette demande n'est plus affichée.")); return }
-  const m = x.menu
+  if (!waiting(x)) return next(ctx)   // answered elsewhere or no longer waiting: nothing to show
   body.append(el("div", "hint", name(x) + (x.since_ms ? " · " + ctx.age(x.since_ms) : "")))
-  body.append(el("div", "rafq", m.kind === "permission" ? "Autorisation demandée" + (m.tool ? " · " + m.tool : "") : m.question || "Question"))
-  if (m.detail) body.append(el("div", "cmd", m.detail))
-  const row = el("div", "btns")
-  menuButtons(ctx, x, row, () => next(ctx))
-  body.append(row)
+  const redraw = () => draw(ctx)
+  body.append(menuCard(ctx, x, x.kind === "permission" ? "approve" : "question", {
+    full: true,
+    redraw,
+    // refused (the request changed, or already sent): reload the state, then show what is asked now
+    onDone: async (ok) => {
+      if (ok) return next(ctx)
+      await ctx.tick()
+      draw(ctx)
+    },
+  }))
   const pass = el("div", "btns")
   pass.append(btn("Passer (revient dans 1 h)", null, async () => {
     try { await post("/api/snooze", { address: c.a, until_ms: Date.now() + 36e5 }) } catch (e) { ctx.note(e.message) }
@@ -113,7 +120,7 @@ function questionCard(ctx, body, c) {
     const ta = el("ui-textarea")
     const t = el("textarea")
     t.value = a.text
-    t.dataset.fk = "raf"
+    t.dataset.fk = fieldKey("raf", c.a, c.t)
     t.setAttribute("aria-label", "Ta réponse")
     t.addEventListener("input", () => set({ choice: "", text: t.value }))
     ta.append(t)
@@ -244,5 +251,5 @@ function draw(ctx) {
   const h = el("div", "rafhead")
   h.append(prev.w, el("span", "pg", RAF.i + 1 + "/" + n), btn("Terminer", null, () => end(ctx)).w)
   body.append(h)
-  c.type === "menu" ? menuCard(ctx, body, c) : questionCard(ctx, body, c)
+  c.type === "menu" ? menuStep(ctx, body, c) : questionCard(ctx, body, c)
 }

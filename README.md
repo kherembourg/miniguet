@@ -22,6 +22,8 @@ Le « ministère du guet » de tes agents de code. Un tableau de bord web, pens�
 
 **Agir depuis la tablette**
 - **Autorisations et menus de choix** de Claude Code : les sessions qui demandent ton feu vert (ou te posent une question à choix) sont en tête de liste, avec la demande affichée en entier ; **Approuver / Toujours / Refuser** (ou un bouton par option) tapent la bonne touche dans le terminal. Rien n'est tapé si la demande a changé depuis l'affichage.
+  - Les options qui changent de mode (par exemple « Yes, and switch to auto mode ») ne sont jamais des boutons : elles sont affichées en texte (« À choisir dans le terminal : … ») et se choisissent dans le terminal.
+  - Garde de génération : `status_ms` change entre deux demandes consécutives d'une même session (vérifié sur une vraie session le 2026-11-13) ; la page renvoie le `since_ms` affiché et le serveur refuse si la session a avancé.
 - **Dictée vocale** locale : un bouton 🎙 transcrit ta voix par Whisper sur le Mac (voir plus bas) ; le texte est ajouté au champ et n'est jamais envoyé tout seul.
 - **Répondre** : Oui / Non / texte libre (avec la dictée du clavier) pour chaque question, regroupé en un seul message envoyé dans le terminal de la session avec `hc send`, après un aperçu et une confirmation explicite.
 - **Rafale** : une question à la fois, plein écran, avec le contexte, « Passer » (reporte d'une heure), « Plus pertinent », et un récapitulatif avant tout envoi.

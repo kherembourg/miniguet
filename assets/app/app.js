@@ -1,5 +1,5 @@
 import { getState, getThread } from "./api.js"
-import { grouped, waitingCount, groupOf, badge, summary, dlDays, isSnoozed, GROUPS } from "./groups.js"
+import { grouped, waitingCount, badge, summary, dlDays, isSnoozed, detectFresh } from "./groups.js"
 import { renderDetail } from "./detail.js"
 import { initVoice } from "./voice.js"
 import { openRafale } from "./rafale.js"
@@ -91,31 +91,10 @@ function row(x, g, isNew) {
   return b
 }
 
-const PREV = new Map()
+let PREV = new Map()
 let first = true
 let FRESH = new Set()
 
-// A session is new when it waits on me with a key (address:since_ms) not seen before; sound and flash follow.
-function detectFresh(d) {
-  const now = nowMs()
-  const cur = new Map()
-  const fresh = new Set()
-  let kind = "new"
-  for (const x of d.agents) {
-    const key = x.address + ":" + x.since_ms
-    cur.set(x.address, isSnoozed(x, now) ? "z" : key)
-    const g = groupOf(x, now, hidden)
-    if (first || isSnoozed(x, now) || !["error", "approve", "question"].includes(g) || PREV.get(x.address) === key) continue
-    fresh.add(x.address)
-    const k = x.status === "error" ? "error" : x.deadline && dlDays(x) <= 1 ? "deadline" : "new"
-    if (k === "error" || (k === "deadline" && kind === "new")) kind = k
-  }
-  for (const [k, v] of PREV) if (!cur.has(k)) cur.set(k, v)  // a session that blinks out for a moment is not new when it returns
-  PREV.clear(); for (const [k, v] of cur) PREV.set(k, v)
-  first = false
-  FRESH = fresh
-  return fresh.size ? kind : null
-}
 function renderList(d) {
   const L = $("list")
   const groups = grouped(d.agents, nowMs(), hidden)
@@ -209,7 +188,11 @@ function render(d) {
   LAST = d
   off = d.now_ms - Date.now()
   ensureSelection(d)
-  const chime = detectFresh(d)
+  const det = detectFresh(d.agents, PREV, nowMs(), hidden, first)
+  PREV = det.cur
+  first = false
+  FRESH = det.fresh
+  const chime = det.kind
   renderHeader(d)
   renderList(d)
   renderDetailPane(d)
