@@ -125,3 +125,12 @@ export function detectFresh(agents, prev, nowMs, hidden, first) {
   for (const [k, v] of prev) if (!cur.has(k)) cur.set(k, v)  // blinking out of the list for a moment is not new on return
   return { fresh, kind: fresh.size ? kind : null, cur }
 }
+
+// One 1 s button gate per view ("panel", "rafale"): a view only compares with its own last key.
+// `changed` tells the caller to schedule its own redraw once the second is over.
+export function gateCheck(state, view, key, now) {
+  const g = state[view]
+  const changed = !g || g.key !== key
+  if (changed) state[view] = { key, at: now }
+  return { disabled: now - state[view].at < 1000, changed }
+}

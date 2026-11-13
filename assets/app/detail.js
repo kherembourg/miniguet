@@ -1,4 +1,4 @@
-import { badge, groupOf, openQuestions, openTodos, isSnoozed, dlDays, watching } from "./groups.js"
+import { badge, groupOf, openQuestions, openTodos, isSnoozed, dlDays, watching, gateCheck } from "./groups.js"
 import { post } from "./api.js"
 import { draftFor, makePreview, clearDraft, PREVIEWS, fieldKey } from "./reply.js"
 import { micButton } from "./voice.js"
@@ -104,22 +104,19 @@ export async function chooseOption(ctx, agent, opt, since_ms) {
 }
 
 // The displayed request or the selected session changed: keep the buttons off for a second so a tap aimed at the old one is lost.
-const GATE = { key: "", at: 0 }
-function gated(agent, redraw) {
+const GATE = {}
+function gated(agent, view, redraw) {
   const key = agent.address + "|" + (agent.menu && agent.menu.menu_hash)
-  if (key !== GATE.key) {
-    GATE.key = key
-    GATE.at = Date.now()
-    setTimeout(redraw, 1050)
-  }
-  return Date.now() - GATE.at < 1000
+  const r = gateCheck(GATE, view, key, Date.now())
+  if (r.changed) setTimeout(redraw, 1050)
+  return r.disabled
 }
 
 // onDone(ok) runs after every attempt; redraw repaints whoever shows the buttons (the panel by default).
 export function menuButtons(ctx, agent, container, { onDone, redraw } = {}) {
   const m = agent.menu
   const since_ms = agent.since_ms
-  const off = SENDING.has(agent.address) || gated(agent, redraw || (() => ctx.render()))
+  const off = SENDING.has(agent.address) || gated(agent, redraw ? "rafale" : "panel", redraw || (() => ctx.render()))
   const manyAlways = m.options.filter((o) => o.role === "always").length > 1
   for (const opt of m.options) {
     // two "always" options would read the same: keep the start of the real label so each one says what it does
