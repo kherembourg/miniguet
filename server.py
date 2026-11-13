@@ -655,6 +655,8 @@ def paired(h):
     Requests through the Cloudflare Tunnel also arrive on loopback (from cloudflared): they are never the Mac."""
     if h.client_address[0] in ("127.0.0.1", "::1") and not cfaccess.via_tunnel(h.headers):
         return True
+    if cfaccess.via_tunnel(h.headers) and cfaccess.identity(h.headers):
+        return True   # Cloudflare Access already proved who this is (passkey, allowed e-mail): stronger than the cookie
     m = re.search(r"(?:^|;\s*)mg_pair=([^;]+)", h.headers.get("Cookie") or "")
     return bool(m) and hmac.compare_digest(m.group(1), PAIR)
 
