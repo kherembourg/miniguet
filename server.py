@@ -1040,6 +1040,17 @@ def serve(host, port):
     HTTPD((host, port), H).serve_forever()
 
 
+def pick_tailscale_ip(route_out, ifconfig_out):
+    """The 100.64/10 address of the interface that routes Tailscale's DNS (100.100.100.100).
+    Cloudflare WARP also uses 100.64/10 on another utun, so the first CGNAT address may not be Tailscale's."""
+    m = re.search(r"interface: (\S+)", route_out)
+    if not m:
+        return None
+    block = re.search(r"^" + re.escape(m.group(1)) + r":.*?(?=^\S|\Z)", ifconfig_out, re.M | re.S)
+    m = block and re.search(r"inet (100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+) ", block.group(0))
+    return m.group(1) if m else None
+
+
 def serve_tailscale(port):
     """Bind to the Tailscale address only; it may not exist yet at boot, so retry."""
     warned = False
@@ -1051,11 +1062,11 @@ def serve_tailscale(port):
                 m = re.search(r"^(100\.\d+\.\d+\.\d+)$", r.stdout, re.M)   # the GUI may print an error instead
                 ip = m.group(1) if r.returncode == 0 and m else None
             if not ip:
+                route = subprocess.run(["/sbin/route", "-n", "get", "100.100.100.100"], capture_output=True, text=True, timeout=10).stdout
                 out = subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, timeout=10).stdout
-                m = re.search(r"inet (100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+) ", out)  # CGNAT range Tailscale uses
-                if not m:
+                ip = pick_tailscale_ip(route, out)
+                if not ip:
                     raise RuntimeError("no tailscale interface yet")
-                ip = m.group(1)
             print(f"herdr-board on http://{ip}:{port} (tailscale)", flush=True)
             return serve(ip, port)
         except Exception as e:
