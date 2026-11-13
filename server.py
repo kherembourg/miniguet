@@ -24,7 +24,22 @@ def snapshot():
     finally:
         p.kill()
         p.wait()
-    return json.loads(line)["terminals"]
+    return [_remote(t) for t in json.loads(line)["terminals"]]
+
+
+def _remote(t):
+    """Terminals of other machines added with `hc machine add` have addresses like "m5/t7". Their pid is only
+    meaningful over there: drop it, or it would be looked up in this Mac's ~/.claude/sessions (a matching pid
+    would attach the wrong conversation). Prefix the space name with the machine, so the board says where it runs."""
+    addr = t.get("address") or ""
+    if "/" in addr:
+        machine = addr.split("/", 1)[0]
+        if t.get("foreground"):
+            t["foreground"] = {k: v for k, v in t["foreground"].items() if k != "pid"}
+        labels = t.setdefault("labels", {})
+        if labels.get("where") and not labels["where"].startswith(machine + " · "):
+            labels["where"] = f"{machine} · {labels['where']}"
+    return t
 
 
 STATE_DIR = os.path.expanduser("~/.local/state/herdr-board")
