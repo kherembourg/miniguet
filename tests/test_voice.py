@@ -117,7 +117,12 @@ class RouteTest(Base):
         srv = self.srv()
         os.environ["FAKE_SLEEP"] = "0"
         r = self.post(srv, {"audio": "pas du base64 !"})
-        self.assertIn("error", r)
+        self.assertEqual(r, {"error": "audio illisible"})
+        c = dict(self.c, bin="/nope")
+        with open(os.path.join(srv.STATE_DIR, "whisper.json"), "w") as f:
+            json.dump(c, f)
+        r = self.post(srv, {"audio": base64.b64encode(b"audio").decode()})
+        self.assertTrue(r["error"].startswith("whisper introuvable ou inutilisable"), r)
 
 
 if __name__ == "__main__":

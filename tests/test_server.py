@@ -134,6 +134,8 @@ class DemoTest(DemoServer):
 
     def test_demo_loads_only_new_modules(self):
         log = self.server_log()
+        for name in ("thread", "choose", "voice"):
+            self.assertIn("module loaded: " + name + "\n", log)
         for name in ("stats", "daily", "backup", "oldherdr"):
             self.assertNotIn("module loaded: " + name, log)
 
@@ -193,3 +195,48 @@ class VoiceDemoTest(DemoServer):
         import base64
         r = self.post_json("/api/transcribe", {"audio": base64.b64encode(b"audio").decode(), "type": "audio/mp4"})
         self.assertEqual(r, {"text": "bonjour le monde"})
+
+
+class HcTimeoutTest(unittest.TestCase):
+    """hc_keys / hc_send against a fake hc that sleeps: a French error, not an exception."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="miniguet-demo-")
+        shutil.copytree(os.path.join(ROOT, "demo"), os.path.join(cls.tmp, "demo"), ignore=shutil.ignore_patterns("state", "out.log"))
+        os.environ["MINIGUET_DEMO"] = os.path.join(cls.tmp, "demo")   # state in the temp folder, set before the import
+        sys.path.insert(0, ROOT)
+        import server
+        cls.server = server
+
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("MINIGUET_DEMO", None)
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        s = self.server
+        self.saved = (s.DEMO, s.HC, s.HC_KEYS_TIMEOUT, s.HC_SEND_TIMEOUT)
+        s.DEMO, s.HC = None, os.path.join(ROOT, "tests", "fake_hc.sh")
+        s.HC_KEYS_TIMEOUT = s.HC_SEND_TIMEOUT = 0.3
+        os.environ["FAKE_SLEEP"] = "3"
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        s = self.server
+        s.DEMO, s.HC, s.HC_KEYS_TIMEOUT, s.HC_SEND_TIMEOUT = self.saved
+        os.environ.pop("FAKE_SLEEP", None)
+
+    def test_hc_keys_timeout_is_a_french_error(self):
+        self.assertEqual(self.server.hc_keys("t1", "1"), "le terminal n'a pas répondu à temps (0.3 s)")
+
+    def test_hc_send_timeout_is_a_french_error(self):
+        self.assertEqual(self.server.hc_send("t1", "salut"), "le terminal n'a pas répondu à temps (0.3 s)")
+
+    def test_default_timeouts(self):
+        self.restore()
+        self.assertEqual((self.server.HC_KEYS_TIMEOUT, self.server.HC_SEND_TIMEOUT), (10, 60))
+        self.setUp()
+
+    def test_hc_keys_ok_when_hc_answers_in_time(self):
+        os.environ["FAKE_SLEEP"] = "0"
+        self.assertIsNone(self.server.hc_keys("t1", "1"))

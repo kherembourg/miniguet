@@ -1,3 +1,7 @@
+"""Generation gate, observed on a real Claude Code session (herdr `hc events`, this Mac): status_ms changes between two
+consecutive blocked prompts of the same turn: blocked 1794588444769 (turn 7) -> answered -> working 1794588445300 ->
+blocked 1794588447025 (turn 8). So `since_ms` (the status_ms shown on the card) tells two prompts apart.
+"""
 import json, os, re, unittest
 
 import choose
@@ -258,6 +262,7 @@ class RouteTest(unittest.TestCase):
         self.assertEqual(srv.keys_sent, [])
 
     def test_choose_refuses_stale_generation(self):
+        # real session: status_ms 1794588444769 -> working 1794588445300 -> blocked 1794588447025 (turn 7 -> 8)
         srv = self.srv(status_ms=NOW + 1)   # same menu, but the session moved on since the card was drawn
         r = self.post(srv, self.request())
         self.assertIn("avancé", r["error"])
@@ -309,6 +314,14 @@ class RouteTest(unittest.TestCase):
         self.assertIn("terminal introuvable", self.post(srv, d)["error"])
         srv.keys_error = None
         self.assertEqual(self.post(srv, d)["ok"], True)
+
+    def test_choose_logs_failed_attempt_with_error(self):
+        srv = self.srv()
+        srv.keys_error = "le terminal n'a pas répondu à temps (10 s)"
+        self.post(srv, self.request())
+        with open(srv.SENTF) as f:
+            e = json.loads(f.read().splitlines()[-1])
+        self.assertEqual((e["choose"], e["error"]), ("1", "le terminal n'a pas répondu à temps (10 s)"))
 
     def test_choose_logs(self):
         srv = self.srv()

@@ -692,8 +692,16 @@ def paired(h):
     return bool(m) and hmac.compare_digest(m.group(1), PAIR)
 
 
-def _hc_error(r, what):
-    """Error message of a failed `hc` run (JSON error on stdout when there is one), None when it went through."""
+HC_SEND_TIMEOUT = 60
+HC_KEYS_TIMEOUT = 10
+
+
+def _hc(cmd, timeout, what):
+    """Run an `hc` command: the error message (JSON error on stdout when there is one), None when it went through."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return f"le terminal n'a pas répondu à temps ({timeout:g} s)"
     if not r.returncode:
         return None
     try:
@@ -707,7 +715,7 @@ def hc_send(addr, text):
     if DEMO:
         demo_log(f"send {addr} {text}")
         return None
-    return _hc_error(subprocess.run([HC, "send", "--", addr, text], capture_output=True, text=True, timeout=60), "hc send")
+    return _hc([HC, "send", "--", addr, text], HC_SEND_TIMEOUT, "hc send")
 
 
 def hc_keys(addr, key):
@@ -716,7 +724,7 @@ def hc_keys(addr, key):
     if DEMO:
         demo_log(f"keys {addr} {key}")
         return None
-    return _hc_error(subprocess.run([HC, "keys", addr, key], capture_output=True, text=True, timeout=10), "hc keys")
+    return _hc([HC, "keys", addr, key], HC_KEYS_TIMEOUT, "hc keys")
 
 
 def send_route(h, body):
