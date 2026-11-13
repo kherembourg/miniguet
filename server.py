@@ -11,6 +11,7 @@ import argparse, datetime, difflib, glob, hmac, importlib, json, os, re, secrets
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import cfaccess
 
 HC = os.path.expanduser("~/.local/bin/hc")
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -635,8 +636,9 @@ PAIR = pair_token()
 
 
 def paired(h):
-    """The Mac itself (loopback) is trusted; any other client must carry the pairing cookie."""
-    if h.client_address[0] in ("127.0.0.1", "::1"):
+    """The Mac itself (loopback) is trusted; any other client must carry the pairing cookie.
+    Requests through the Cloudflare Tunnel also arrive on loopback (from cloudflared): they are never the Mac."""
+    if h.client_address[0] in ("127.0.0.1", "::1") and not cfaccess.via_tunnel(h.headers):
         return True
     m = re.search(r"(?:^|;\s*)mg_pair=([^;]+)", h.headers.get("Cookie") or "")
     return bool(m) and hmac.compare_digest(m.group(1), PAIR)
@@ -771,6 +773,8 @@ def host_ok(host):
     h = h.lower().strip("[]")
     if h in ("localhost", "::1"):
         return True
+    if cfaccess.configured() and h == cfaccess.public_host():   # Cloudflare Tunnel name (Access token checked in guard)
+        return True
     if re.fullmatch(r"\d+\.\d+\.\d+\.\d+", h):
         a, b = int(h.split(".")[0]), int(h.split(".")[1])
         return a == 127 or (a == 100 and 64 <= b <= 127)   # loopback, Tailscale CGNAT range
@@ -789,6 +793,8 @@ class H(BaseHTTPRequestHandler):
             bad = True
         if not bad and origin == "null":
             bad = True
+        if not bad and cfaccess.via_tunnel(self.headers) and not cfaccess.identity(self.headers):
+            bad = True                                             # through Cloudflare: a valid Access token is mandatory
         if bad:
             self.send(403, "text/plain", b"forbidden")
         return not bad
@@ -798,7 +804,7 @@ class H(BaseHTTPRequestHandler):
         try:
             fd = os.open(os.path.join(STATE_DIR, "access.log"), os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
             with os.fdopen(fd, "a") as f:
-                f.write(f"{time.strftime('%H:%M:%S')} {self.client_address[0]} {fmt % a} UA={self.headers.get('User-Agent','')[:80]}\n")
+                f.write(f"{time.strftime('%H:%M:%S')} {self.headers.get('Cf-Connecting-Ip') or self.client_address[0]} {fmt % a} UA={self.headers.get('User-Agent','')[:80]}\n")
         except Exception:
             pass
 
@@ -867,7 +873,8 @@ class H(BaseHTTPRequestHandler):
         q = parse_qs(urlparse(self.path).query)
         if q.get("pair") and hmac.compare_digest(q["pair"][0], PAIR):   # pairing link: remember this device, then go home
             self.send_response(302)
-            self.send_header("Set-Cookie", f"mg_pair={PAIR}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000")
+            secure = "; Secure" if cfaccess.via_tunnel(self.headers) else ""
+            self.send_header("Set-Cookie", f"mg_pair={PAIR}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000{secure}")
             self.send_header("Location", "/")
             self.end_headers()
             return

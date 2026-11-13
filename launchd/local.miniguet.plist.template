@@ -7,6 +7,7 @@
 <string>__REPO__/server.py</string>
 <string>--host</string><string>127.0.0.1</string>
 <string>--host</string><string>tailscale</string>
+<string>--port</string><string>__PORT__</string>
 </array>
 <key>WorkingDirectory</key><string>__REPO__</string>
 <key>EnvironmentVariables</key><dict>

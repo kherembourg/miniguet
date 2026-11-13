@@ -74,6 +74,13 @@ scripts/install-launchd.sh     # écoute sur 127.0.0.1 et sur l'adresse Tailscal
 
 **Musique d'ambiance.** Dépose un fichier `assets/ambient.mp3` : il est lu en boucle à 30 % de volume. Aucun fichier n'est fourni (il est ignoré par git) : apporte le tien, libre de droits.
 
+**Cloudflare Tunnel + Access (alternative à Tailscale, gratuite).** Pour joindre le tableau depuis n'importe où sans installer Tailscale sur les appareils : un tunnel Cloudflare publie `https://miniguet.<ton-domaine>` et **Cloudflare Access** (plan Zero Trust Free, jusqu'à 50 utilisateurs) exige une connexion (Google, code par e-mail…) avant d'atteindre le Mac.
+1. Dans le tunnel (`~/.cloudflared/config.yml`), ajoute `- hostname: miniguet.<ton-domaine>` / `service: http://127.0.0.1:8765`, puis `cloudflared tunnel route dns <tunnel> miniguet.<ton-domaine>`.
+2. Crée une application Access « self-hosted » sur ce nom, avec une règle *Allow* limitée à ton adresse.
+3. Crée `~/.local/state/herdr-board/cloudflare.json` : `{"host": "miniguet.<ton-domaine>", "team": "<équipe>", "aud": "<AUD de l'application>", "emails": ["toi@exemple.com"]}` et redémarre le serveur.
+
+Le serveur vérifie lui-même le jeton Access (signature, audience, expiration, e-mail) de toute requête arrivée par le tunnel et refuse le reste : sans `cloudflare.json`, tout ce qui passe par Cloudflare est refusé. Ces requêtes ne sont jamais traitées comme venant du Mac (bien que `cloudflared` se connecte depuis `127.0.0.1`) : envoyer du texte aux agents exige toujours l'appairage (`scripts/pair-url.sh` affiche alors l'adresse publique).
+
 ## Configuration
 
 Tout l'état est dans `~/.local/state/herdr-board/` (ce dossier n'est pas dans le dépôt : il contient ton travail réel).
@@ -126,6 +133,7 @@ python3 backup.py setup --account <ID>   # crée la base D1 « miniguet » ; dem
 - `stats.py` + `stats.html` : mesures, tirées des journaux de conversation (`~/.claude/projects`) ; `gcal.py` : réunions du calendrier.
 - `daily.py` + `daily.html` + `daily-history.html` : résumé du daily.
 - `index.html` : la page principale (JavaScript sans dépendance). `assets/` : logo, icônes, `sound.js`, musique.
+- `cfaccess.py` : vérification des jetons Cloudflare Access (tunnel).
 - `backup.py` : sauvegarde chiffrée. `launchd/`, `scripts/` : démarrage automatique, adresse d'appairage.
 
 Les sessions principales et leurs écrans viennent de `hc events` et `hc read`. Le lien terminal, conversation passe par `~/.claude/sessions/<pid>.json`.
