@@ -83,6 +83,10 @@ Le serveur vérifie lui-même le jeton Access (signature, audience, expiration, 
 
 **Plusieurs Macs.** Les sessions herdr d'autres machines s'ajoutent côté herdr : active « Session à distance » sur l'autre Mac, autorise la clé SSH de celui-ci, puis `hc machine add moi@<adresse> --name m5`. Leurs terminaux (`m5/t7`) arrivent dans le même flux : Miniguet les affiche (« m5 · espace »), extrait leurs questions et leur envoie les réponses. Les journaux Claude restant sur chaque machine, les statistiques, le daily et les dates de création ne couvrent que le Mac qui fait tourner Miniguet.
 
+**Toujours joignable (relais de secours).** Si le tunnel tourne sur un Mac toujours allumé mais que les sessions vivent surtout sur un autre (portable), fais tourner Miniguet sur les deux et pointe le tunnel vers le relais : `scripts/install-failover.sh http://<portable>:8766 http://127.0.0.1:8766`, puis `service: http://127.0.0.1:8767` dans le tunnel. Le portable est servi quand il répond, le Mac toujours allumé sinon. Chaque Miniguet a son propre état (snoozes, échéances) : ceux posés en secours ne remontent pas sur l'autre.
+
+**Déployer** après un `git push` : `scripts/deploy.sh moi@<autre-mac>` redémarre le service local et, sur chaque machine donnée, fait `git pull` puis redémarre.
+
 ## Configuration
 
 Tout l'état est dans `~/.local/state/herdr-board/` (ce dossier n'est pas dans le dépôt : il contient ton travail réel).
