@@ -7,17 +7,27 @@ serves a single page. Stdlib only.
     python3 server.py                 # http://127.0.0.1:8765
     python3 server.py --host 0.0.0.0  # reachable from a tablet on your LAN
 """
-import argparse, datetime, difflib, glob, hmac, importlib, json, os, re, secrets, subprocess, sys, threading, time
+import argparse, datetime, difflib, glob, hmac, importlib, json, os, re, secrets, shutil, subprocess, sys, threading, time
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import cfaccess
 
 HC = os.path.expanduser("~/.local/bin/hc")
 HERE = os.path.dirname(os.path.abspath(__file__))
+# MINIGUET_DEMO=<folder>: sample data instead of Herdr (terminals.json, screens/, transcripts/), state kept in <folder>/state
+DEMO = os.path.abspath(os.environ["MINIGUET_DEMO"]) if os.environ.get("MINIGUET_DEMO") else None
+
+
+def demo_log(line):
+    with open(os.path.join(DEMO, "out.log"), "a") as f:
+        f.write(line.replace("\n", "\\n") + "\n")
 
 
 def snapshot():
+    if DEMO:
+        with open(os.path.join(DEMO, "terminals.json")) as f:
+            return [_remote(t) for t in json.load(f)["terminals"]]
     p = subprocess.Popen([HC, "events"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     try:
         line = p.stdout.readline()
@@ -42,14 +52,23 @@ def _remote(t):
     return t
 
 
-STATE_DIR = os.path.expanduser("~/.local/state/herdr-board")
+STATE_DIR = os.path.join(DEMO, "state") if DEMO else os.path.expanduser("~/.local/state/herdr-board")
+if DEMO and not os.path.isdir(STATE_DIR):   # first launch: the state starts as a copy of <folder>/seed/
+    shutil.copytree(os.path.join(DEMO, "seed"), STATE_DIR)
+    for _n in os.listdir(STATE_DIR):   # dates and paths that cannot be written in a tracked file
+        _p = os.path.join(STATE_DIR, _n)
+        if _n.endswith(".json"):
+            with open(_p) as _f:
+                _s = _f.read()
+            with open(_p, "w") as _f:
+                _f.write(_s.replace("{today}", time.strftime("%Y-%m-%d")).replace("{repo}", HERE))
 # working folder of the `claude -p` calls: private (0700) and user-owned, never a shared /tmp where another user could plant a .claude/settings.json
 SCRATCH = os.environ.get("HERDR_BOARD_CWD") or os.path.join(STATE_DIR, "scratch")
 os.makedirs(SCRATCH, mode=0o700, exist_ok=True)
 POOL = ThreadPoolExecutor(max_workers=4)
 CACHE = {}   # key -> {"open": [...], "answered": [...]} | {"error": str}
 INFLIGHT = set()
-MEM = os.path.expanduser("~/.local/state/herdr-board/memory.json")
+MEM = os.path.join(STATE_DIR, "memory.json")
 try:
     with open(MEM) as f:
         LAST = json.load(f)   # addr -> last good analysis, shown dimmed while the agent works
@@ -157,6 +176,12 @@ Réponds UNIQUEMENT par un JSON : {"open": [...], "todo": [...], "answered": [..
 
 
 def read_screen(addr):
+    if DEMO:
+        try:
+            with open(os.path.join(DEMO, "screens", addr.replace("/", "_") + ".txt")) as f:
+                return f.read().splitlines()
+        except OSError:
+            return []
     out = subprocess.run([HC, "read", addr], capture_output=True, text=True, timeout=3).stdout
     return out.splitlines()
 
@@ -195,6 +220,9 @@ CLAUDE = os.path.expanduser("~/.claude")
 
 
 def transcript_path(pid):
+    if DEMO:
+        p = os.path.join(DEMO, "transcripts", f"{pid}.jsonl")
+        return p if os.path.isfile(p) else None
     try:
         with open(f"{CLAUDE}/sessions/{pid}.json") as f:
             sid = json.load(f)["sessionId"]
@@ -532,6 +560,8 @@ def info_for(addr, item, pid):
 
 def ask_sonnet(prompt):
     """JSON answer of `claude -p --model sonnet` (the only place conversation content is sent)."""
+    if DEMO:
+        raise RuntimeError("démo : pas d'appel à Claude")
     r = subprocess.run(
         ["claude", "-p", "--model", "sonnet", "--no-session-persistence",
          "--settings", '{"disableAllHooks":true}', "--setting-sources", "user",
@@ -661,6 +691,20 @@ def paired(h):
     return bool(m) and hmac.compare_digest(m.group(1), PAIR)
 
 
+def hc_send(addr, text):
+    """Type `text` into session `addr` with hc: the error message, or None when it went through."""
+    if DEMO:
+        demo_log(f"send {addr} {text}")
+        return None
+    r = subprocess.run([HC, "send", "--", addr, text], capture_output=True, text=True, timeout=60)
+    if r.returncode:
+        try:
+            return json.loads(r.stdout)["error"]["message"]
+        except Exception:
+            return (r.stdout or r.stderr).strip()[:200] or f"hc send a échoué ({r.returncode})"
+    return None
+
+
 def send_route(h, body):
     if not paired(h):
         return 200, "application/json", json.dumps({"error": "appareil non appairé : ouvre l'adresse d'appairage (scripts/pair-url.sh sur le Mac) sur cet appareil"}, ensure_ascii=False).encode()
@@ -671,13 +715,8 @@ def send_route(h, body):
         t, err = send_check(addr, text, d.get("since_ms"))
         if err:
             return 200, "application/json", json.dumps(err, ensure_ascii=False).encode()
-        r = subprocess.run([HC, "send", "--", addr, text], capture_output=True, text=True, timeout=60)
-        if r.returncode:
-            try:
-                err = json.loads(r.stdout)["error"]["message"]
-            except Exception:
-                err = (r.stdout or r.stderr).strip()[:200] or f"hc send a échoué ({r.returncode})"
-        else:
+        err = hc_send(addr, text)
+        if not err:
             SENT[addr] = t.get("status_ms")
         entry = {"ts": int(time.time() * 1000), "address": addr, "space": (t.get("labels") or {}).get("where"),
                  "text": text, "questions": qs}
@@ -772,7 +811,8 @@ ROUTES["POST"]["/api/resume"] = resume_route
 
 
 def load_modules():
-    for name in ("stats", "oldherdr", "daily", "backup"):
+    # the demo loads only the new modules: the others have their own production paths, background tasks and `claude -p` calls
+    for name in ("thread", "choose", "voice") if DEMO else ("stats", "oldherdr", "daily", "backup"):
         try:
             importlib.import_module(name).register(sys.modules[__name__])
             print("module loaded:", name, flush=True)
@@ -924,11 +964,12 @@ class H(BaseHTTPRequestHandler):
                                {"src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png"},
                                {"src": "/assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]}
                 return self.send(200, "application/manifest+json", json.dumps(m).encode())
-            name = os.path.basename(p)   # basename only: no path traversal out of assets/
-            f = os.path.join(HERE, "assets", name)
+            root = os.path.realpath(os.path.join(HERE, "assets"))
+            rel = unquote(p[len("/assets/"):])
+            f = os.path.realpath(os.path.join(root, rel))   # sub-folders allowed, but never out of assets/ (.., %2e%2e, symlinks)
             ct = {"png": "image/png", "ico": "image/x-icon", "svg": "image/svg+xml", "js": "text/javascript",
-                  "mp3": "audio/mpeg"}.get(name.rsplit(".", 1)[-1])
-            if ct and os.path.isfile(f):
+                  "css": "text/css; charset=utf-8", "mp3": "audio/mpeg"}.get(f.rsplit(".", 1)[-1])
+            if ct and "\0" not in rel and f.startswith(root + os.sep) and os.path.isfile(f):
                 with open(f, "rb") as fh:
                     data = fh.read()
                 rg = re.fullmatch(r"bytes=(\d*)-(\d*)", self.headers.get("Range") or "")
@@ -955,6 +996,9 @@ class H(BaseHTTPRequestHandler):
                 self.end_headers()
                 return self.wfile.write(data)
             self.send(404, "text/plain", b"not found")
+        elif self.path.split("?")[0] == "/classic" and os.path.isfile(os.path.join(HERE, "index-classic.html")):
+            with open(os.path.join(HERE, "index-classic.html"), "rb") as f:
+                self.send(200, "text/html; charset=utf-8", f.read())
         elif self.path in ("/", "/index.html"):
             with open(os.path.join(HERE, "index.html"), "rb") as f:
                 self.send(200, "text/html; charset=utf-8", f.read())

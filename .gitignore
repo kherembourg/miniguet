@@ -4,3 +4,5 @@ __pycache__/
 # state is kept outside the repo (~/.local/state/herdr-board), nothing to ignore there
 assets/ambient.mp3
 .superpowers/
+demo/state/
+demo/out.log

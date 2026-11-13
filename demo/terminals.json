@@ -1,0 +1,324 @@
+{
+ "terminals": [
+  {
+   "address": "t1",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9001
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "7",
+    "where": "facturation / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "error",
+    "msg": "API error: 529 overloaded"
+   },
+   "status_ms": 1794585665426,
+   "title": "Migration du module de facturation",
+   "turn": 7
+  },
+  {
+   "address": "t2",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9002
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "4",
+    "where": "outils / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "blocked",
+    "kind": "permission",
+    "msg": "Bash command"
+   },
+   "status_ms": 1794588005426,
+   "title": "Nettoyage des fichiers temporaires",
+   "turn": 4
+  },
+  {
+   "address": "t3",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9003
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "5",
+    "where": "docs / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "blocked",
+    "kind": "permission",
+    "msg": "Create file"
+   },
+   "status_ms": 1794587705426,
+   "title": "Ajout du README du projet",
+   "turn": 5
+  },
+  {
+   "address": "t4",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9004
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "2",
+    "where": "infra / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "blocked",
+    "kind": "auth",
+    "msg": "Please run /login"
+   },
+   "status_ms": 1794587285426,
+   "title": "Déploiement de la préproduction",
+   "turn": 2
+  },
+  {
+   "address": "t5",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9005
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "3",
+    "where": "interface / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "blocked",
+    "kind": "question",
+    "msg": "Question"
+   },
+   "status_ms": 1794588065426,
+   "title": "Choix de la couleur du thème",
+   "turn": 3
+  },
+  {
+   "address": "t6",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9006
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "8",
+    "where": "facturation / 2"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "done"
+   },
+   "status_ms": 1794586685426,
+   "title": "Refonte de la facturation",
+   "turn": 9
+  },
+  {
+   "address": "t7",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9007
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "5",
+    "where": "outils / 2"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "done"
+   },
+   "status_ms": 1794582785426,
+   "title": "Mise à jour des dépendances",
+   "turn": 6
+  },
+  {
+   "address": "t8",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9008
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "4",
+    "where": "exports / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "working",
+    "msg": "Écrit les tests"
+   },
+   "status_ms": 1794587825426,
+   "title": "Écriture des tests d'export",
+   "turn": 4
+  },
+  {
+   "address": "t9",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323",
+    "pid": 9009
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "3",
+    "where": "données / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "working",
+    "msg": "Attend la fin de l'import"
+   },
+   "status_ms": 1794580985426,
+   "title": "Import des données clients",
+   "turn": 3
+  },
+  {
+   "address": "m1/t16",
+   "argv": [
+    "/bin/zsh",
+    "-l"
+   ],
+   "cwd": "/Users/demo/projet",
+   "foreground": {
+    "argv": [
+     "claude"
+    ],
+    "cwd": "/Users/demo/projet",
+    "name": "2.1.323"
+   },
+   "identity": "ghostty",
+   "labels": {
+    "herdr.seen": "11",
+    "where": "Development / 1"
+   },
+   "name": null,
+   "parent": null,
+   "state": "live",
+   "status": {
+    "app": "claude-code",
+    "state": "done"
+   },
+   "status_ms": 1794577385426,
+   "title": "Relecture de la PR 946",
+   "turn": 12
+  }
+ ]
+}

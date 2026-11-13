@@ -1,0 +1,8 @@
+● Voilà, c'est fait : les trois fichiers sont renommés.
+
+  Dis-moi si tu veux aussi que je mette à jour le README.
+
+╭──────────────────────────────────────────────────────────────╮
+│ >                                                            │
+╰──────────────────────────────────────────────────────────────╯
+  ? for shortcuts
