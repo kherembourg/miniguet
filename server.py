@@ -972,11 +972,16 @@ def serve_tailscale(port):
     warned = False
     while True:
         try:
-            out = subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, timeout=10).stdout
-            m = re.search(r"inet (100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+) ", out)  # CGNAT range Tailscale uses
-            if not m:
-                raise RuntimeError("no tailscale interface yet")
-            ip = m.group(1)
+            ip = None
+            if os.path.exists(TS_CLI):   # ask Tailscale: another VPN may also use the 100.64/10 range
+                r = subprocess.run([TS_CLI, "ip", "-4"], capture_output=True, text=True, timeout=10)
+                ip = r.stdout.strip().splitlines()[0] if r.returncode == 0 and r.stdout.strip() else None
+            if not ip:
+                out = subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, timeout=10).stdout
+                m = re.search(r"inet (100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+) ", out)  # CGNAT range Tailscale uses
+                if not m:
+                    raise RuntimeError("no tailscale interface yet")
+                ip = m.group(1)
             print(f"herdr-board on http://{ip}:{port} (tailscale)", flush=True)
             return serve(ip, port)
         except Exception as e:
