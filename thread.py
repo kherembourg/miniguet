@@ -29,20 +29,35 @@ def screen_excerpt(lines, limit=600):
 
 
 def register(srv):
+    def listed(addr):
+        """Only what the board lists: a live top-level agent of herdr, or an agent a module contributes (old herdr)."""
+        terms = srv.snapshot()
+        if any(t["address"] == addr and srv.main_agent(t) for t in terms):
+            return True
+        for fn in srv.AGENT_SOURCES:
+            try:
+                if any(a["address"] == addr for a in fn(terms)):
+                    return True
+            except Exception:
+                pass
+        return False
+
+    def from_screen(addr):
+        try:
+            full = screen_excerpt(srv.read_screen(addr), None)
+        except Exception:
+            full = ""
+        a = {"text": full[-600:], "ts": None, "truncated": len(full) > 600, "full": full, "screen": True}
+        return {"me": None, "agent": a if full else None}
+
     def thread_route(h, body):
         addr = parse_qs(urlparse(h.path).query).get("address", [""])[0]
+        if not listed(addr):
+            return 404, "application/json", json.dumps({"error": "session inconnue"}).encode()
         pid = srv.pid_of(addr)
-        if pid:
-            out = last_exchange(srv.messages(pid))
-        else:   # another machine's session, or the old herdr: only the screen is known
-            try:
-                full = screen_excerpt(srv.read_screen(addr), None)
-            except Exception:
-                full = ""
-            out = {"me": None, "agent": None}
-            if full:
-                a = {"text": full[-600:], "ts": None, "truncated": len(full) > 600, "full": full, "screen": True}
-                out["agent"] = a
+        out = last_exchange(srv.messages(pid)) if pid else {"me": None, "agent": None}
+        if not out["me"] and not out["agent"]:   # another machine, the old herdr, or a session with no Claude transcript (Codex)
+            out = from_screen(addr)
         return 200, "application/json", json.dumps(out, ensure_ascii=False).encode()
 
     srv.ROUTES["GET"]["/api/thread"] = thread_route

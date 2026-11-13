@@ -13,6 +13,7 @@ class FakeSrv:
     def __init__(self, screen=None, screen_error=None, terms=None, pids=None, msgs=None, keys_error=None):
         self.ROUTES = {"GET": {}, "POST": {}}
         self.SNAPSHOT_HOOKS = []
+        self.AGENT_SOURCES = []
         self.screens = [list(screen or [])] if screen is None or screen and isinstance(screen[0], str) else [list(s) for s in screen]
         self.screen_error = screen_error
         self.reads = 0                     # number of read_screen calls

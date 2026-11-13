@@ -182,7 +182,7 @@ def read_screen(addr):
                 return f.read().splitlines()
         except OSError:
             return []
-    out = subprocess.run([HC, "read", addr], capture_output=True, text=True, timeout=3).stdout
+    out = subprocess.run([HC, "read", "--", addr], capture_output=True, text=True, timeout=3).stdout
     return out.splitlines()
 
 
