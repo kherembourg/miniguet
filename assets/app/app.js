@@ -1,6 +1,7 @@
 import { getState, getThread } from "./api.js"
 import { grouped, waitingCount, groupOf, badge, summary, dlDays, isSnoozed, GROUPS } from "./groups.js"
 import { renderDetail } from "./detail.js"
+import { initVoice } from "./voice.js"
 
 const $ = (id) => document.getElementById(id)
 const el = (tag, cls, text) => {
@@ -26,6 +27,7 @@ const nowMs = () => Date.now() + off
 
 export const ctx = {
   nowMs,
+  age: (ms) => age(ms),
   hidden,
   agent: (a) => (LAST ? LAST.agents.find((x) => x.address === a) : undefined),
   agents: () => (LAST ? LAST.agents : []),
@@ -259,6 +261,7 @@ if (OV.includes(location.pathname)) {
   showFrame(u)
 }
 
+initVoice().then(() => ctx.render())
 tick()
 setInterval(tick, 2000)
 setInterval(() => { banner(); document.querySelectorAll("[data-since]").forEach((e) => { e.textContent = e.dataset.since ? age(+e.dataset.since) : "" }) }, 1000)
