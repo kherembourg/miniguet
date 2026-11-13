@@ -183,3 +183,13 @@ class ChooseDemoTest(DemoServer):
         self.assertEqual(r, {"ok": True, "label": "No"})
         with open(os.path.join(self.demo, "out.log")) as f:
             self.assertIn("keys t3 3", f.read())
+
+
+class VoiceDemoTest(DemoServer):
+    def test_voice_is_available_with_the_fake_binaries(self):
+        self.assertEqual(self.get_json("/api/voice"), {"available": True})
+
+    def test_transcribe_with_the_fake_binaries(self):
+        import base64
+        r = self.post_json("/api/transcribe", {"audio": base64.b64encode(b"audio").decode(), "type": "audio/mp4"})
+        self.assertEqual(r, {"text": "bonjour le monde"})

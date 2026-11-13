@@ -826,7 +826,7 @@ ROUTES["POST"]["/api/resume"] = resume_route
 
 def load_modules():
     # the demo loads only the new modules: the others have their own production paths, background tasks and `claude -p` calls
-    for name in ("thread", "choose", "voice") if DEMO else ("stats", "oldherdr", "daily", "backup", "thread", "choose"):
+    for name in ("thread", "choose", "voice") if DEMO else ("stats", "oldherdr", "daily", "backup", "thread", "choose", "voice"):
         try:
             importlib.import_module(name).register(sys.modules[__name__])
             print("module loaded:", name, flush=True)
