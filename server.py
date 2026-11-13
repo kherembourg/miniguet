@@ -259,7 +259,7 @@ def messages(pid):
             if o.get("type") not in ("user", "assistant") or o.get("isSidechain") or o.get("isMeta"):
                 continue
             t = _text((o.get("message") or {}).get("content")).strip()
-            if not t or t.startswith("<") or "<system-reminder>" in t[:40]:
+            if not t or (o["type"] == "user" and (t.startswith("<") or "<system-reminder>" in t[:40])):
                 continue
             try:
                 ms = int(datetime.datetime.fromisoformat(o["timestamp"].replace("Z", "+00:00")).timestamp() * 1000)
@@ -812,7 +812,7 @@ ROUTES["POST"]["/api/resume"] = resume_route
 
 def load_modules():
     # the demo loads only the new modules: the others have their own production paths, background tasks and `claude -p` calls
-    for name in ("thread", "choose", "voice") if DEMO else ("stats", "oldherdr", "daily", "backup"):
+    for name in ("thread", "choose", "voice") if DEMO else ("stats", "oldherdr", "daily", "backup", "thread"):
         try:
             importlib.import_module(name).register(sys.modules[__name__])
             print("module loaded:", name, flush=True)

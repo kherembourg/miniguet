@@ -136,3 +136,31 @@ class DemoTest(DemoServer):
         log = self.server_log()
         for name in ("stats", "daily", "backup", "oldherdr"):
             self.assertNotIn("module loaded: " + name, log)
+
+
+def jsonl(*recs):
+    return "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in recs)
+
+
+def rec(role, content, ts, **extra):
+    return dict({"type": role, "timestamp": ts, "message": {"content": content}}, **extra)
+
+
+class ThreadDemoTest(DemoServer):
+    def thread(self, addr):
+        return self.get_json("/api/thread?address=" + addr)
+
+    def test_thread_skips_fake_user_messages(self):
+        with open(os.path.join(self.demo, "transcripts", "9007.jsonl"), "w") as f:
+            f.write(jsonl(
+                rec("user", "Le vrai message", "2026-11-13T09:00:00Z"),
+                rec("user", "<system-reminder>rappel</system-reminder>", "2026-11-13T09:00:01Z"),
+                rec("user", [{"type": "tool_result", "content": "résultat"}], "2026-11-13T09:00:02Z"),
+                rec("user", "message méta", "2026-11-13T09:00:03Z", isMeta=True),
+                rec("user", "<task-notification>fini</task-notification>", "2026-11-13T09:00:04Z")))
+        d = self.thread("t7")
+        self.assertEqual(d["me"]["text"], "Le vrai message")
+
+    def test_thread_keeps_assistant_starting_with_tag(self):
+        d = self.thread("t6")
+        self.assertTrue(d["agent"]["text"].startswith("<b>Résultat</b>"), d["agent"]["text"])
