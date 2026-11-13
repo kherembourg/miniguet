@@ -72,7 +72,7 @@ scripts/install-launchd.sh     # écoute sur 127.0.0.1 et sur l'adresse Tailscal
 
 **Calendrier (facultatif).** Dans Claude Code, tape `/mcp`, choisis « claude.ai Google Calendar » et autorise. Miniguet lit uniquement les horaires, le type et le nombre de participants des événements (jamais les titres). Une réunion compte si elle a au moins 2 participants.
 
-**Musique d'ambiance.** Dépose un fichier `assets/ambient.mp3` : il est lu en boucle à 30 % de volume. Le fichier fourni dans ce dépôt privé vient d'un autre projet : **à retirer ou remplacer avant de passer le dépôt en public.**
+**Musique d'ambiance.** Dépose un fichier `assets/ambient.mp3` : il est lu en boucle à 30 % de volume. Aucun fichier n'est fourni (il est ignoré par git) : apporte le tien, libre de droits.
 
 ## Configuration
 
