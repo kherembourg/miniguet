@@ -790,7 +790,11 @@ class H(BaseHTTPRequestHandler):
         if not bad and origin and origin != "null":
             bad = (origin.split("://", 1)[-1].lower() != (host or "").lower())
         if not bad and self.headers.get("Sec-Fetch-Site") == "cross-site":
-            bad = True
+            # a top-level GET navigation may come from another site (the Cloudflare Access login redirects back here):
+            # GETs only read, and the other site cannot read the answer. Everything else cross-site is refused.
+            nav = (self.command == "GET" and self.headers.get("Sec-Fetch-Mode") == "navigate"
+                   and self.headers.get("Sec-Fetch-Dest") == "document")
+            bad = not nav
         if not bad and origin == "null":
             bad = True
         if not bad and cfaccess.via_tunnel(self.headers) and not cfaccess.identity(self.headers):
