@@ -21,6 +21,8 @@ Le « ministère du guet » de tes agents de code. Un tableau de bord web, pens�
 - **Plus pertinent** : retire un point (avec annulation possible, et une section « Retirées » pour le remettre). « Tout retirer » en un geste.
 
 **Agir depuis la tablette**
+- **Autorisations et menus de choix** de Claude Code : les sessions qui demandent ton feu vert (ou te posent une question à choix) sont en tête de liste, avec la demande affichée en entier ; **Approuver / Toujours / Refuser** (ou un bouton par option) tapent la bonne touche dans le terminal. Rien n'est tapé si la demande a changé depuis l'affichage.
+- **Dictée vocale** locale : un bouton 🎙 transcrit ta voix par Whisper sur le Mac (voir plus bas) ; le texte est ajouté au champ et n'est jamais envoyé tout seul.
 - **Répondre** : Oui / Non / texte libre (avec la dictée du clavier) pour chaque question, regroupé en un seul message envoyé dans le terminal de la session avec `hc send`, après un aperçu et une confirmation explicite.
 - **Rafale** : une question à la fois, plein écran, avec le contexte, « Passer » (reporte d'une heure), « Plus pertinent », et un récapitulatif avant tout envoi.
 - Garde-fous à l'envoi : refus si la session travaille, si une réponse est déjà tapée dans sa zone de saisie, si l'agent a avancé depuis l'aperçu, ou au-delà de 4 000 caractères. Chaque envoi est journalisé.
@@ -103,6 +105,23 @@ Tout l'état est dans `~/.local/state/herdr-board/` (ce dossier n'est pas dans l
 | `pair_token` (0600) | secret d'appairage des appareils distants : ne jamais le partager ni le sauvegarder |
 | `backup_config.json`, `backups/mirror.sqlite` | configuration de la sauvegarde, copie locale chiffrée |
 | `access.log`, `scratch/` | journal d'accès (0600), dossier de travail privé (0700) des appels `claude -p` |
+
+## Voix (Whisper), mode démo, ancienne page, tests
+
+**Voix.** Le bouton 🎙 n'apparaît que si le Mac sait transcrire. Installation : `brew install whisper-cpp ffmpeg`, puis télécharger un modèle, par exemple `ggml-large-v3-turbo-q5_0.bin` dans `~/.local/share/miniguet/whisper/`. Les chemins se changent dans `~/.local/state/herdr-board/whisper.json` (`bin`, `ffmpeg`, `model`). La page envoie l'audio en base64 dans du JSON à `POST /api/transcribe` (5 Mo, 60 s au total, une dictée à la fois, appareil appairé obligatoire) ; `GET /api/voice` dit si c'est disponible.
+
+**Mode démo.** `MINIGUET_DEMO=demo python3 server.py --port 8799` sert des sessions d'exemple (dossier `demo/`, état dans `demo/state/`, ce que le serveur « tape » est écrit dans `demo/out.log`) sans toucher à Herdr ni à `claude -p` ; Stats et Daily ne sont pas chargés. C'est ce qui sert à développer et vérifier la page dans un navigateur.
+
+**Ancienne page.** `/classic` sert l'ancienne interface (`index-classic.html`) jusqu'au 2026-11-27 : à cette date, supprimer la route et le fichier.
+
+**Page.** `index.html` charge des modules JS sans build (`assets/app/`) et les composants `ui-sdk` 0.1.0-beta.1 copiés dans `assets/ui-sdk/0.1.0-beta.1/` (licence Apache-2.0 jointe) : aucun fichier ne vient d'un autre domaine. Les chemins sont absolus (`/assets/...`) car la page est aussi servie à `/stats`, `/daily`, `/daily/history`.
+
+**Tests** (uniquement les fichiers écrits pour la refonte, jamais une suite complète) :
+
+```bash
+python3 -m unittest tests.test_server tests.test_choose tests.test_thread tests.test_voice -v
+node --test tests/js/groups.test.mjs tests/js/reply.test.mjs     # Node 22, outil de dev seulement
+```
 
 ## Sécurité
 

@@ -107,7 +107,7 @@ section#detail { overflow: auto; padding: 24px 32px 48px; }
 .grp ui-collapsible-trigger button { width: 100%; justify-content: space-between; background: transparent; border-color: transparent; }
 .grp .rows { display: flex; flex-direction: column; gap: 8px; }
 
-.row { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; min-height: 64px; background: var(--card); border: 1px solid var(--line); border-left: 8px solid var(--gc); border-radius: 12px; padding: 12px 16px; cursor: pointer; }
+.row { display: flex; flex-direction: column; gap: 2px; text-align: left; width: 100%; min-height: 64px; background: var(--card); border: 1px solid var(--edge); border-left: 8px solid var(--gc); border-radius: 12px; padding: 12px 16px; cursor: pointer; }
 .row[aria-current="true"] { background: var(--sel); border-color: var(--fg); border-left-color: var(--gc); outline: 2px solid var(--fg); outline-offset: -2px; }
 .row.unseen:not([aria-current="true"]) { border-color: var(--c-error); }
 .r1 { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
