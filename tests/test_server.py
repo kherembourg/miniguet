@@ -240,3 +240,21 @@ class HcTimeoutTest(unittest.TestCase):
     def test_hc_keys_ok_when_hc_answers_in_time(self):
         os.environ["FAKE_SLEEP"] = "0"
         self.assertIsNone(self.server.hc_keys("t1", "1"))
+
+
+class BacklogTest(DemoServer):
+    def test_listen_backlog_is_large(self):
+        os.environ["MINIGUET_DEMO"] = self.demo   # state in the temp copy, set before the import
+        sys.path.insert(0, ROOT)
+        try:
+            import server
+            self.assertGreaterEqual(server.HTTPD.request_queue_size, 128)
+            self.assertTrue(server.HTTPD.daemon_threads)
+        finally:
+            os.environ.pop("MINIGUET_DEMO", None)
+
+    def test_sixty_concurrent_asset_requests_all_succeed(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(60) as pool:
+            codes = list(pool.map(lambda _: self.req("GET", "/assets/logo.png")[0], range(60)))
+        self.assertEqual(codes, [200] * 60)

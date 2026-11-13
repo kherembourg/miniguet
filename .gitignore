@@ -6,3 +6,4 @@ assets/ambient.mp3
 .superpowers/
 demo/state/
 demo/out.log
+.playwright-mcp/

@@ -1031,8 +1031,13 @@ class H(BaseHTTPRequestHandler):
 TS_CLI = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 
 
+class HTTPD(ThreadingHTTPServer):
+    request_queue_size = 128   # a cold page load fires ~50 parallel module requests: the default backlog of 5 resets some
+    daemon_threads = True
+
+
 def serve(host, port):
-    ThreadingHTTPServer((host, port), H).serve_forever()
+    HTTPD((host, port), H).serve_forever()
 
 
 def serve_tailscale(port):
