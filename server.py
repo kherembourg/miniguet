@@ -950,6 +950,7 @@ def serve(host, port):
 
 def serve_tailscale(port):
     """Bind to the Tailscale address only; it may not exist yet at boot, so retry."""
+    warned = False
     while True:
         try:
             out = subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, timeout=10).stdout
@@ -960,7 +961,9 @@ def serve_tailscale(port):
             print(f"herdr-board on http://{ip}:{port} (tailscale)", flush=True)
             return serve(ip, port)
         except Exception as e:
-            print("tailscale not ready:", e, flush=True)
+            if not warned:                                   # once: without Tailscale this would fill the log
+                print("tailscale not ready (will keep retrying):", e, flush=True)
+                warned = True
             time.sleep(10)
 
 
