@@ -86,14 +86,16 @@ const ROLE_LABEL = { approve: "Approuver", always: "Toujours", deny: "Refuser" }
 
 export async function chooseOption(ctx, agent, opt, since_ms) {
   const m = agent.menu
-  if (SENDING.has(agent.address)) return
+  if (SENDING.has(agent.address)) return false
   SENDING.add(agent.address)
   ctx.render()
   try {
     await post("/api/choose", { address: agent.address, key: opt.key, menu_hash: m.menu_hash, since_ms })
     ctx.note("Envoyé : " + opt.label)
+    return true
   } catch (e) {
     ctx.note(e.message)
+    return false
   } finally {
     SENDING.delete(agent.address)
     ctx.tick()
@@ -101,16 +103,20 @@ export async function chooseOption(ctx, agent, opt, since_ms) {
   }
 }
 
-export function menuButtons(ctx, agent, container) {
+export function menuButtons(ctx, agent, container, onSent) {
   const m = agent.menu
   const since_ms = agent.since_ms
   const busy = SENDING.has(agent.address)
+  const manyAlways = m.options.filter((o) => o.role === "always").length > 1
   for (const opt of m.options) {
-    const { w, b } = btn(ROLE_LABEL[opt.role] && m.kind === "permission" ? ROLE_LABEL[opt.role] : opt.label, "opt act")
+    // two "always" options would read the same: keep the start of the real label so each one says what it does
+    const text = m.kind !== "permission" || !ROLE_LABEL[opt.role] ? opt.label
+      : opt.role === "always" && manyAlways ? "Toujours : " + opt.label.replace(/^Yes,?\s*(and\s+)?/i, "").slice(0, 40) : ROLE_LABEL[opt.role]
+    const { w, b } = btn(text, "opt act")
     b.dataset.role = opt.role
     b.dataset.agentConfirm = "Répond au menu dans le terminal"
     if (busy) w.setAttribute("disabled", "")
-    b.addEventListener("click", () => chooseOption(ctx, agent, opt, since_ms))
+    b.addEventListener("click", async () => { if (await chooseOption(ctx, agent, opt, since_ms) && onSent) onSent() })
     container.append(w)
   }
 }
@@ -142,6 +148,7 @@ function menuCard(ctx, x, g) {
   const row = el("div", "btns")
   menuButtons(ctx, x, row)
   card.append(row)
+  for (const o of m.options.filter((o) => o.role === "always")) card.append(el("p", "hint", "Toujours = " + o.label))
   if (m.free_text) card.append(el("p", "hint", "Pour une réponse libre : réponds dans le terminal"))
   return card
 }
@@ -265,27 +272,32 @@ function drawPreview(ctx, address, err, stale, busy) {
 }
 
 // The only call that types into an agent. It posts the frozen preview, never the current since_ms.
-export async function sendPreview(ctx, address) {
+// Throws the server's message (with since_ms when the session moved on).
+export async function sendFrozen(ctx, p) {
+  await post("/api/send", { address: p.address, text: p.text, questions: p.questions, since_ms: p.since_ms })
+  const n = p.questions.length
+  clearDraft(p.address)
+  await dismissMany(ctx, p.address, p.questions, false, null)
+  return n || 1
+}
+
+async function sendPreview(ctx, address) {
   const p = PREVIEWS.get(address)
-  if (!p || p.busy) return 0
+  if (!p || p.busy) return
   p.busy = true
   drawPreview(ctx, address, "", false, true)
+  let n
   try {
-    await post("/api/send", { address: p.address, text: p.text, questions: p.questions, since_ms: p.since_ms })
+    n = await sendFrozen(ctx, p)
   } catch (e) {
     p.busy = false
     drawPreview(ctx, address, e.message, !!e.since_ms)
-    return 0
+    return
   }
-  p.busy = false
-  const n = p.questions.length
   const x = ctx.agent(address)
-  clearDraft(address)
   $("pv-dialog").open = false
-  ctx.note((n ? plural(n, "réponse") + " envoyée" + (n > 1 ? "s" : "") : "Message envoyé") + " à " + (x ? x.space : address))
-  await dismissMany(ctx, address, p.questions, false, null)
+  ctx.note((p.questions.length ? plural(n, "réponse") + " envoyée" + (n > 1 ? "s" : "") : "Message envoyé") + " à " + (x ? x.space : address))
   ctx.render()
-  return n || 1
 }
 export const sendWarning = sendWarn
 

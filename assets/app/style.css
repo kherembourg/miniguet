@@ -63,7 +63,7 @@ body {
   font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   display: flex; flex-direction: column;
 }
-button { font: inherit; color: inherit; }
+button:not([data-slot]) { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--ui-ring); outline-offset: 2px; }
 
 /* web.css sizes controls at 32 px; touch needs 48 / 56 */
@@ -148,7 +148,7 @@ button.opt[data-role="choice"] { background: var(--sel); }
 .hint { color: var(--dim); font-size: 16px; margin: 0; }
 .rq { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .rq .qt { font-size: 17px; font-weight: 700; margin-bottom: 10px; overflow-wrap: anywhere; }
-[data-slot="toggle"][data-pressed] { background: var(--solid); color: var(--on-solid); border-color: var(--solid); font-weight: 800; }
+[data-slot="toggle"][data-pressed], button[data-pressed] { background: var(--solid); color: var(--on-solid); border-color: var(--solid); font-weight: 800; }
 .warn { color: var(--c-approve); font-size: 16px; margin: 6px 0; }
 .serr { color: var(--c-error); font-weight: 700; margin: 8px 0; }
 .sok { color: var(--c-review); font-weight: 800; }
@@ -181,7 +181,7 @@ button.mic[data-state="busy"] { opacity: .7; }
 #toast button { pointer-events: auto; font-weight: 800; background: transparent; border: 0; color: var(--bg); text-decoration: underline; min-height: 48px; min-width: 48px; padding: 0 12px; cursor: pointer; }
 #tx { text-decoration: none !important; font-size: 26px; line-height: 1; }
 
-#desk { position: fixed; inset: 0; z-index: 20; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; cursor: pointer; text-align: center; }
+#desk { position: fixed; inset: 0; z-index: 20; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; cursor: pointer; text-align: center; }
 #desk[hidden] { display: none; }
 #desk .dn { font-size: min(52vh, 52vw); font-weight: 800; line-height: 1; }
 #desk .dt { font-size: min(4vh, 5vw); color: var(--dim); }

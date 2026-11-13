@@ -2,6 +2,8 @@ import { getState, getThread } from "./api.js"
 import { grouped, waitingCount, groupOf, badge, summary, dlDays, isSnoozed, GROUPS } from "./groups.js"
 import { renderDetail } from "./detail.js"
 import { initVoice } from "./voice.js"
+import { openRafale } from "./rafale.js"
+import { toggleDesk, renderDesk } from "./desk.js"
 
 const $ = (id) => document.getElementById(id)
 const el = (tag, cls, text) => {
@@ -91,14 +93,34 @@ function row(x, g, isNew) {
 
 const PREV = new Map()
 let first = true
+let FRESH = new Set()
+
+// A session is new when it waits on me with a key (address:since_ms) not seen before; sound and flash follow.
+function detectFresh(d) {
+  const now = nowMs()
+  const cur = new Map()
+  const fresh = new Set()
+  let kind = "new"
+  for (const x of d.agents) {
+    const key = x.address + ":" + x.since_ms
+    cur.set(x.address, isSnoozed(x, now) ? "z" : key)
+    const g = groupOf(x, now, hidden)
+    if (first || isSnoozed(x, now) || !["error", "approve", "question"].includes(g) || PREV.get(x.address) === key) continue
+    fresh.add(x.address)
+    const k = x.status === "error" ? "error" : x.deadline && dlDays(x) <= 1 ? "deadline" : "new"
+    if (k === "error" || (k === "deadline" && kind === "new")) kind = k
+  }
+  for (const [k, v] of PREV) if (!cur.has(k)) cur.set(k, v)  // a session that blinks out for a moment is not new when it returns
+  PREV.clear(); for (const [k, v] of cur) PREV.set(k, v)
+  first = false
+  FRESH = fresh
+  return fresh.size ? kind : null
+}
 function renderList(d) {
   const L = $("list")
   const groups = grouped(d.agents, nowMs(), hidden)
-  const fresh = []
-  const cur = new Map()
-  for (const x of d.agents) cur.set(x.address, x.address + ":" + x.since_ms)
-  const sig = JSON.stringify([groups.map((g) => [g.id, g.items]), SEL, [...OPEN]])
-  if (sig === listSig) return cur
+  const sig = JSON.stringify([groups.map((g) => [g.id, g.items]), SEL, [...OPEN], [...FRESH]])
+  if (sig === listSig) return
   listSig = sig
   const keep = L.scrollTop
   L.replaceChildren()
@@ -108,9 +130,7 @@ function renderList(d) {
     sec.dataset.g = g.id
     const rows = el("div", "rows")
     for (const x of g.items) {
-      const isNew = !first && g.id !== "working" && g.id !== "snoozed" && PREV.get(x.address) !== cur.get(x.address)
-      if (isNew) fresh.push(x)
-      rows.append(row(x, g.id, isNew))
+      rows.append(row(x, g.id, FRESH.has(x.address)))
     }
     const label = `${g.label} · ${g.items.length}`
     if (g.id === "working" || g.id === "snoozed") {
@@ -132,8 +152,6 @@ function renderList(d) {
     L.append(sec)
   }
   L.scrollTop = keep
-  ctx.fresh = fresh
-  return cur
 }
 
 function renderHeader(d) {
@@ -191,14 +209,17 @@ function render(d) {
   LAST = d
   off = d.now_ms - Date.now()
   ensureSelection(d)
+  const chime = detectFresh(d)
   renderHeader(d)
-  const cur = renderList(d)
+  renderList(d)
   renderDetailPane(d)
   document.querySelectorAll("[data-since]").forEach((e) => { e.textContent = e.dataset.since ? age(+e.dataset.since) : "" })
-  for (const [k, v] of PREV) if (!cur.has(k)) cur.set(k, v)
-  PREV.clear(); for (const [k, v] of cur) PREV.set(k, v)
-  first = false
-  ctx.onRender?.(d)
+  renderDesk(ctx)
+  if (chime && !down()) {
+    const D = $("desk")
+    if (!D.hidden) { D.classList.remove("flash"); void D.offsetWidth; D.classList.add("flash") }
+    window.MG.sound.chime(chime)
+  }
 }
 
 $("list").addEventListener("click", (e) => {
@@ -260,6 +281,33 @@ if (OV.includes(location.pathname)) {
   history.pushState({ fr: 1, href: u }, "", u)
   showFrame(u)
 }
+
+$("rafb").addEventListener("click", () => openRafale(ctx))
+
+const mi = (id) => $(id)
+function menuLabels() {
+  const S = window.MG.sound
+  const a = S.soundState(), b = S.musicState()
+  mi("mi-sound").textContent = a === "off" ? "Activer les sons" : a === "locked" ? "Sons en attente : touche l'écran" : "Couper les sons"
+  mi("mi-music").textContent = b === "off" ? "Lancer la musique" : b === "locked" ? "Musique en attente : touche l'écran" : "Couper la musique"
+  mi("mi-theme").textContent = document.documentElement.dataset.theme === "light" ? "Thème sombre" : "Thème clair"
+}
+function toggleTheme() {
+  const light = document.documentElement.dataset.theme !== "light"
+  if (light) document.documentElement.dataset.theme = "light"; else delete document.documentElement.dataset.theme
+  try { light ? localStorage.setItem("theme", "light") : localStorage.removeItem("theme") } catch (e) {}
+  menuLabels()
+}
+$("menu").addEventListener("action", (e) => {
+  const v = e.detail.value
+  if (v === "desk") toggleDesk(ctx)
+  else if (v === "sound") window.MG.sound.toggleSound()
+  else if (v === "music") window.MG.sound.toggleMusic()
+  else if (v === "theme") toggleTheme()
+})
+window.MG.sound.onChange(menuLabels)
+window.MG.sound.restore()
+menuLabels()
 
 initVoice().then(() => ctx.render())
 tick()
