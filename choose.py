@@ -8,6 +8,8 @@ OPTION = re.compile(r"^\s*(?:❯\s*)?(\d)\.\s+(.+?)\s*$")
 FRAME_TOP = re.compile(r"^─{20,}\s*$")           # top edge of the request frame
 FRAME_LINE = re.compile(r"^[\s│╭╰─╌┌└┐┘╮╯]*$")    # frame and separator lines
 FREE_TEXT = re.compile(r"^(?:other|type something|autre|chat about this|discuter)\b", re.I)
+TITLE = re.compile(r"^ ?[A-Z][A-Za-z]*(?: [A-Za-z]+){0,3}\s*$")   # tool header of a permission frame: " Bash command", " Create file", " Edit file"
+MODE_SWITCH = re.compile(r"switch to|auto mode|accept edits|bypass", re.I)   # changes Claude's mode, not just this request: terminal only
 MULTI = re.compile(r"^(?:\[[ xX✔]?\]|[☐◻☑✔])")
 DETAIL_MAX = 400
 LOOKBACK = 15
@@ -46,8 +48,11 @@ def parse_menu(lines, kind):
     if q is None:
         return None
     question = lines[q].strip()
-    top = next((i for i in range(q - 1, -1, -1) if FRAME_TOP.match(lines[i])), None)
-    p = {"kind": kind, "tool": "", "question": question, "detail": "", "full": "", "truncated": False, "options": []}
+    # permission: the frame top is the nearest `────` line followed by a tool header (a `────` inside the command does not count)
+    tops = [i for i in range(q - 1, -1, -1) if FRAME_TOP.match(lines[i])]
+    top = next((i for i in tops if kind != "permission" or (i + 1 < q and TITLE.match(lines[i + 1]))), None)
+    p = {"kind": kind, "tool": "", "question": question, "detail": "", "full": "", "truncated": False, "options": [],
+         "terminal_only": []}
     if top is None:   # the top of the request is not on the screen read: never offer a button for a request not seen in full
         return p
     body = [ln for ln in lines[top + 1:q] if ln.strip() and not FRAME_LINE.match(ln) and not ln.strip().startswith("Tip:")]
@@ -61,6 +66,9 @@ def parse_menu(lines, kind):
     if any(FREE_TEXT.match(o["label"]) for o in opts):
         p["free_text"] = True
         opts = [o for o in opts if not FREE_TEXT.match(o["label"])]
+    if kind == "permission":
+        p["terminal_only"] = [o["label"] for o in opts if MODE_SWITCH.search(o["label"])]
+        opts = [o for o in opts if not MODE_SWITCH.search(o["label"])]
     for o in opts:
         o["role"] = _role(o["label"]) if kind == "permission" else "choice"
     if kind == "permission":
@@ -109,7 +117,7 @@ def annotate(srv, terms, agents):
             p = parse_menu(srv.read_screen(a["address"]), kind)
         except Exception:
             p = None
-        a["menu"] = {**p, "menu_hash": menu_hash(p)} if p else {"kind": kind, "options": [], "menu_hash": None}
+        a["menu"] = {**p, "menu_hash": menu_hash(p)} if p else {"kind": kind, "options": [], "terminal_only": [], "menu_hash": None}
 
 
 def _json(obj):

@@ -38,9 +38,42 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(p["options"][-1]["role"], "deny")
         self.assertTrue(all(o["key"].isdigit() for o in p["options"]))
 
-    def test_parses_three_options_with_always(self):
-        roles = [o["role"] for o in parse_menu(load("perm-write.txt"), "permission")["options"]]
-        self.assertEqual(roles, ["approve", "always", "deny"])
+    def test_always_option_stays_a_button(self):
+        p = parse_menu(load("perm-bash.txt"), "permission")
+        self.assertEqual([(o["key"], o["role"]) for o in p["options"]], [("1", "approve"), ("2", "always"), ("4", "deny")])
+
+    def test_mode_switch_options_are_terminal_only_bash(self):
+        p = parse_menu(load("perm-bash.txt"), "permission")
+        self.assertEqual(len(p["terminal_only"]), 1)
+        self.assertTrue(p["terminal_only"][0].startswith("Yes, and switch to auto mode"))
+        self.assertFalse([o for o in p["options"] if "switch to" in o["label"]])
+
+    def test_mode_switch_options_are_terminal_only_write(self):
+        p = parse_menu(load("perm-write.txt"), "permission")
+        self.assertEqual([(o["key"], o["role"]) for o in p["options"]], [("1", "approve"), ("3", "deny")])
+        self.assertEqual(len(p["terminal_only"]), 1)
+        self.assertIn("accept edits", p["terminal_only"][0])
+
+    def test_no_terminal_only_on_a_choice_menu(self):
+        self.assertEqual(parse_menu(load("question-3.txt"), "question")["terminal_only"], [])
+
+    def test_extra_frame_line_inside_the_command_still_parses(self):
+        lines = with_command(load("perm-bash.txt"), "echo " + "a" * 60 + " " + "b" * 60, width=65)
+        i = lines.index(" " + "b" * 60) if " " + "b" * 60 in lines else next(k for k, ln in enumerate(lines) if "b" * 20 in ln)
+        lines = lines[:i] + ["─" * 80] + lines[i:]
+        p = parse_menu(lines, "permission")
+        self.assertEqual(p["tool"], "Bash command")
+        self.assertIn("a" * 60, p["full"])
+        self.assertIn("b" * 60, p["full"])
+        self.assertTrue(p["options"])
+
+    def test_frame_line_only_mid_command_is_unrecognised(self):
+        lines = load("perm-bash.txt")
+        top = next(i for i, ln in enumerate(lines) if ln.startswith("─" * 20))
+        cmd = lines.index(" ls /tmp")
+        lines = lines[top + 1:cmd] + ["─" * 80] + lines[cmd:]   # the real top is gone; the only frame line cuts the command
+        lines = [ln for ln in lines if ln != " Bash command"]
+        self.assertEqual(parse_menu(lines, "permission")["options"], [])
 
     def test_yes_no_permission_menu_is_approve_deny(self):
         p = parse_menu(yes_no_permission(), "permission")
@@ -189,7 +222,7 @@ class RouteTest(unittest.TestCase):
         srv = self.srv("plain.txt")
         a = [{"address": "t3", "status": "blocked", "kind": "permission", "since_ms": NOW}]
         choose.annotate(srv, [], a)
-        self.assertEqual(a[0]["menu"], {"kind": "permission", "options": [], "menu_hash": None})
+        self.assertEqual(a[0]["menu"], {"kind": "permission", "options": [], "terminal_only": [], "menu_hash": None})
 
     def test_annotate_unreadable_screen(self):
         srv = self.srv()

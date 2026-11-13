@@ -173,7 +173,7 @@ class ChooseDemoTest(DemoServer):
     def test_state_carries_kind_and_menu(self):
         a = self.agent("t2")
         self.assertEqual(a["kind"], "permission")
-        self.assertEqual([o["role"] for o in a["menu"]["options"]], ["approve", "always", "always", "deny"])
+        self.assertEqual([o["role"] for o in a["menu"]["options"]], ["approve", "always", "deny"])
         self.assertEqual(self.agent("t5")["menu"]["kind"], "question")
         self.assertNotIn("menu", self.agent("t6"))
 
